@@ -41,7 +41,7 @@ func NewJobQueue() JobWorkQueue {
 
 // CheckJobs check if Job is valid to add to queue
 func (a *JobWorkQueue) CheckJob(job Job) (bool, error) {
-	log.Info("Checking Job to see if it can be added to queue")
+	log.Debug("checking Job to see if it can be added to queue")
 
 	if a.IsLock(job) {
 		return false, fmt.Errorf("job has been locked")
@@ -53,22 +53,20 @@ func (a *JobWorkQueue) CheckJob(job Job) (bool, error) {
 
 	if !job.EnableSubjob {
 		if _, e := a.workJobsStatus[job.JobID][NaN]; e {
-			log.Info("Add Task Denied")
-			return false, fmt.Errorf("sub jobs has been added")
+			return false, fmt.Errorf("jobs %s has been added", job.JobID)
 		}
 	} else {
 		if _, e := a.workJobsStatus[job.JobID][job.NewSubJobID]; e {
-			log.Info("Add Task Denied")
 			return false, fmt.Errorf("sub jobs has been added")
 		}
 	}
 	return true, nil
 }
 
-// AddTaskAndRun add task to workQueue and run it
+// AddTaskAndRun Add Job to workQueue and run it
 func (a *JobWorkQueue) AddTaskAndRun(job Job) bool {
 	if _, err := a.CheckJob(job); err != nil {
-		log.Info(fmt.Sprintf("Add Task Denied %v", err.Error()))
+		log.Warningf(fmt.Sprintf("Add Job Denied: %v", err.Error()))
 		return false
 	}
 
@@ -78,25 +76,25 @@ func (a *JobWorkQueue) AddTaskAndRun(job Job) bool {
 	a.workJobsStatus[job.JobID] = subID
 	a.workJobsQueue <- job
 	a.workQueueLength++
-	log.Info("Add Task to WorkQueue and Run", JOBID, job.JobID, "Number of Jobs in Queue", a.workQueueLength)
+	log.Info("Add Job to WorkQueue and Run With JobID: ", job.JobID, " Number of Jobs in Queue :", a.workQueueLength)
 	return true
 }
 
-// AddTask add task to waitQueue
+// AddTask Add Job to waitQueue
 func (a *JobWorkQueue) AddTask(job Job) bool {
 	if _, err := a.CheckJob(job); err != nil {
-		log.Info(fmt.Sprintf("Add Task Denied %v", err.Error()))
+		log.Info(fmt.Sprintf("Add Job Denied: %v", err.Error()))
 		return false
 	}
 
 	if len(a.waitJobsQueue) == a.maxWaitQueueLength {
-		log.Info("Job has added into wait work queue", "JobID", job.JobID)
+		log.Info("Job has added into wait work queue with JobID: ", job.JobID)
 		headJob := <-a.waitJobsQueue
 		a.workJobsQueue <- headJob
 	}
 
 	a.waitJobsQueue <- job
-	log.Info("Job has added into wait work queue", "JobID", job.JobID)
+	log.Info("Job has added into wait work queue with JobID: ", job.JobID)
 	return true
 }
 
@@ -113,7 +111,7 @@ func (a *JobWorkQueue) Run() bool {
 			}
 			headJob := <-waitJobs
 			a.workJobsQueue <- headJob
-			log.Info("Job has added into work queue from waited queue", "JobID", headJob.JobID)
+			log.Info("Job has added into work queue from waited queue with JobID: ", headJob.JobID)
 		}
 	}(a.waitJobsQueue)
 
@@ -124,13 +122,13 @@ func (a *JobWorkQueue) Run() bool {
 func (a *JobWorkQueue) LockJob(job Job) {
 	var lock sync.Mutex
 	lock.Lock()
-	log.Info("Lock Job", "Job ID", job.JobID)
+	log.Warning("Lock Job with JobID: ", job.JobID)
 	a.lockJobIDList[job.JobID] = true
 	lock.Unlock()
 }
 
 func (a *JobWorkQueue) IsLock(job Job) bool {
-	log.Info("Checking if job is locked", "Job ID", job.JobID)
+	log.Debug("Checking if job is locked with JobID: ", job.JobID)
 	if _, ok := a.lockJobIDList[job.JobID]; ok {
 		return true
 	}
@@ -140,15 +138,14 @@ func (a *JobWorkQueue) IsLock(job Job) bool {
 func (a *JobWorkQueue) UnLockJob(job *Job) {
 	var lock sync.Mutex
 	lock.Lock()
+	log.Info("UnLock Job with JobID: ", job.JobID)
 	job.Lock = false
 	lock.Unlock()
 }
 
 // Start Start the JobWorkQueue
 func (a *JobWorkQueue) Start() {
-	log.Info("Async JobWorkQueue has started")
-
-	dataChans := make(chan map[string]interface{}, 100)
+	dataChans := make(chan map[string]interface{}, a.maxWorkQueueLength)
 
 	go func(result map[string]map[string][]interface{}, dataChans chan map[string]interface{}) {
 		for {
@@ -157,7 +154,7 @@ func (a *JobWorkQueue) Start() {
 			subData := make(map[string][]interface{})
 			subData[res[SUBID].(string)] = res[JOBDATA].([]interface{})
 			result[res[JOBID].(string)] = subData
-			log.Info("Async Job Finished", JOBID, res[JOBID].(string), SUBID, res[SUBID].(string))
+			log.Info("Async Job Finished with JobID: ", res[JOBID].(string), " subID: ", res[SUBID].(string))
 		}
 	}(a.SharedJobData, dataChans)
 
@@ -169,13 +166,13 @@ func (a *JobWorkQueue) Start() {
 
 			jobData := make([]interface{}, 0)
 			if task.Status == StatusRunning {
-				log.Info("Async Job Has Started", JOBID, jobID)
+				log.Info("Async Job Has Started with JobID: ", jobID)
 				continue
 			}
 
 			values := task.Handler.Call(task.Params)
 			task.Status = StatusRunning
-			log.Info("Start Async Job", JOBID, jobID)
+			log.Info("Start Async Job with JobID: ", jobID)
 
 			if valuesNum := len(values); valuesNum > 0 {
 				resultItems := make([]interface{}, valuesNum)
@@ -187,7 +184,7 @@ func (a *JobWorkQueue) Start() {
 
 			a.workJobIDHisory[jobID] = append(a.workJobIDHisory[jobID], subID)
 			dataChans <- map[string]interface{}{JOBID: jobID, SUBID: subID, JOBDATA: jobData}
-			log.Info("Send Async Data", JOBID, jobID)
+			log.Info("Send Async Data with JobID: ", jobID)
 		}
 	}(a.workJobsQueue, dataChans)
 }

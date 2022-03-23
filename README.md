@@ -81,11 +81,13 @@ Async is a lightwight, easy-to-use, high performance, more human-being Asynchron
 <!-- GETTING STARTED -->
 ## Getting Started
 
-
-### Prerequisites
-
+![](docs/assets/images/code.png)
 
 ### Installation
+
+``` go
+  go get github.com/Xunzhuo/async
+```
 
 <!-- USAGE EXAMPLES -->
 ## Usage
