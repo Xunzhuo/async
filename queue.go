@@ -63,10 +63,10 @@ func (a *JobWorkQueue) CheckJob(job Job) (bool, error) {
 	return true, nil
 }
 
-// AddTaskAndRun add task to workQueue and run it
+// AddTaskAndRun Add Job to workQueue and run it
 func (a *JobWorkQueue) AddTaskAndRun(job Job) bool {
 	if _, err := a.CheckJob(job); err != nil {
-		log.Warningf(fmt.Sprintf("Add Task Denied: %v", err.Error()))
+		log.Warningf(fmt.Sprintf("Add Job Denied: %v", err.Error()))
 		return false
 	}
 
@@ -76,14 +76,14 @@ func (a *JobWorkQueue) AddTaskAndRun(job Job) bool {
 	a.workJobsStatus[job.JobID] = subID
 	a.workJobsQueue <- job
 	a.workQueueLength++
-	log.Info("Add Task to WorkQueue and Run With JobID: ", job.JobID, " Number of Jobs in Queue :", a.workQueueLength)
+	log.Info("Add Job to WorkQueue and Run With JobID: ", job.JobID, " Number of Jobs in Queue :", a.workQueueLength)
 	return true
 }
 
-// AddTask add task to waitQueue
+// AddTask Add Job to waitQueue
 func (a *JobWorkQueue) AddTask(job Job) bool {
 	if _, err := a.CheckJob(job); err != nil {
-		log.Info(fmt.Sprintf("Add Task Denied: %v", err.Error()))
+		log.Info(fmt.Sprintf("Add Job Denied: %v", err.Error()))
 		return false
 	}
 
@@ -122,7 +122,7 @@ func (a *JobWorkQueue) Run() bool {
 func (a *JobWorkQueue) LockJob(job Job) {
 	var lock sync.Mutex
 	lock.Lock()
-	log.Info("Lock Job with JobID: ", job.JobID)
+	log.Warning("Lock Job with JobID: ", job.JobID)
 	a.lockJobIDList[job.JobID] = true
 	lock.Unlock()
 }
@@ -138,13 +138,14 @@ func (a *JobWorkQueue) IsLock(job Job) bool {
 func (a *JobWorkQueue) UnLockJob(job *Job) {
 	var lock sync.Mutex
 	lock.Lock()
+	log.Info("UnLock Job with JobID: ", job.JobID)
 	job.Lock = false
 	lock.Unlock()
 }
 
 // Start Start the JobWorkQueue
 func (a *JobWorkQueue) Start() {
-	dataChans := make(chan map[string]interface{}, 100)
+	dataChans := make(chan map[string]interface{}, a.maxWorkQueueLength)
 
 	go func(result map[string]map[string][]interface{}, dataChans chan map[string]interface{}) {
 		for {
