@@ -68,9 +68,18 @@ Async is a lightwight, easy-to-use, high performance, more human-being Asynchron
     + reducing the time like when interating with DataBase to query SQL
     + reducing ....
 
-### Architecture
+<!-- GETTING STARTED -->
+## Getting Started
 
-<!-- <img src="assets/images/1-2-1.svg" alt="architect" width="100%"> -->
+### Installation
+
+<div align="center">
+<img src="docs/assets/images/code.png" alt="Code" width="60%">
+</div>
+
+``` go
+  go get github.com/Xunzhuo/async
+```
 
 #### Built with
 
@@ -78,16 +87,8 @@ Async is a lightwight, easy-to-use, high performance, more human-being Asynchron
 * [Docker](https://www.docker.com/)
 * [Docker-Compose](https://docs.docker.com/compose/)
 
-<!-- GETTING STARTED -->
-## Getting Started
 
-![](docs/assets/images/code.png)
 
-### Installation
-
-``` go
-  go get github.com/Xunzhuo/async
-```
 
 <!-- USAGE EXAMPLES -->
 ## Usage
