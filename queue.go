@@ -92,8 +92,8 @@ func (a *JobWorkQueue) CheckJob(job Job) (bool, error) {
 	return true, nil
 }
 
-// AddTaskAndRun Add Job to workQueue and run it
-func (a *JobWorkQueue) AddTaskAndRun(job Job) bool {
+// AddJobAndRun Add Job to workQueue and run it
+func (a *JobWorkQueue) AddJobAndRun(job Job) bool {
 	if _, err := a.CheckJob(job); err != nil {
 		log.Warningf(fmt.Sprintf("Add Job Denied: %v", err.Error()))
 		return false
@@ -107,8 +107,8 @@ func (a *JobWorkQueue) AddTaskAndRun(job Job) bool {
 	return true
 }
 
-// AddTask Add Job to waitQueue
-func (a *JobWorkQueue) AddTask(job Job) bool {
+// AddJob Add Job to waitQueue
+func (a *JobWorkQueue) AddJob(job Job) bool {
 	if _, err := a.CheckJob(job); err != nil {
 		log.Info(fmt.Sprintf("Add Job Denied: %v", err.Error()))
 		return false
@@ -191,18 +191,18 @@ func (a *JobWorkQueue) Start() {
 
 	go func(jobs chan Job, dataChans chan map[string]interface{}) {
 		for {
-			task := <-a.workJobsQueue
-			jobID := task.JobID
-			subID := task.GetSubID()
+			job := <-a.workJobsQueue
+			jobID := job.JobID
+			subID := job.GetSubID()
 
 			jobData := make([]interface{}, 0)
-			if task.Status == StatusRunning {
+			if job.Status == StatusRunning {
 				log.Info("Async Job Has Started with JobID: ", jobID)
 				continue
 			}
 
-			values := task.Handler.Call(task.Params)
-			task.Status = StatusRunning
+			values := job.Handler.Call(job.Params)
+			job.Status = StatusRunning
 			log.Info("Start Async Job with JobID: ", jobID)
 
 			if valuesNum := len(values); valuesNum > 0 {
