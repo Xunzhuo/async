@@ -58,6 +58,11 @@ func newJob(jobID string, taskName string, startTime int64,
 		Params:    make([]reflect.Value, 0),
 	}
 
+	if handler == nil {
+		newJob.Status = StatusFailure
+		return newJob
+	}
+
 	newJob.JobID = jobID
 
 	if len(params) != 0 {

@@ -242,7 +242,7 @@ func TestAsyncWithParams(t *testing.T) {
 		count--
 		jobID := fmt.Sprintf("%d", rand.Intn(100000))
 		jobs = append(jobs, jobID)
-		Engine.AddJobAndRun(NewJob(jobID, sendFakeRequest, url, jobID))
+		Engine.AddJobAndRun(NewJob(jobID, fakeJob, url, jobID))
 		if count < 1 {
 			break
 		}
@@ -252,13 +252,12 @@ func TestAsyncWithParams(t *testing.T) {
 	for _, job := range jobs {
 		data, ok := Engine.GetJobData(job)
 		if ok {
-			log.Printf("GetJobData %t With JobID %s of Data %s at seed: %s at %d",
-				ok, job, data[0].(string), data[1].(string), data[2].(int))
+			log.Printf("GetJobData %t With JobID %s of Data %s",
+				ok, job, data[0].(string))
 		}
 	}
 }
 
-func sendFakeRequest(msg string, timestamp string) (string, string, int) {
-	log.Printf("msg:%s timestamp: %s", msg, timestamp)
-	return msg, timestamp, rand.Intn(10000)
+func fakeJob(value string) string {
+	return "Hello World" + value
 }

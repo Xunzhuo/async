@@ -3,7 +3,6 @@ package async
 import (
 	"fmt"
 	"reflect"
-	"sync"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -22,25 +21,6 @@ type JobWorkQueue struct {
 
 	SharedJobData        map[string]map[string][]interface{}
 	SharedJobDataChannel chan map[string]map[string][]interface{}
-}
-
-type JobWorkQueueOptions struct {
-	MaxWaitQueueLength int
-	MaxWorkQueueLength int
-}
-
-type Option func(*JobWorkQueueOptions)
-
-func WithMaxWaitQueueLength(maxWaitQueueLength int) Option {
-	return func(opt *JobWorkQueueOptions) {
-		opt.MaxWaitQueueLength = maxWaitQueueLength
-	}
-}
-
-func WithMaxWorkQueueLength(maxWorkQueueLength int) Option {
-	return func(opt *JobWorkQueueOptions) {
-		opt.MaxWorkQueueLength = maxWorkQueueLength
-	}
 }
 
 // NewJobQueue create a Empty JobWorkQueue
@@ -68,9 +48,20 @@ func NewJobQueue(opts ...Option) JobWorkQueue {
 	}
 }
 
+func (a *JobWorkQueue) SetMaxWorkQueueLength(len int) {
+	a.maxWorkQueueLength = len
+}
+
+func (a *JobWorkQueue) SetMaxWaitQueueLength(len int) {
+	a.maxWaitQueueLength = len
+}
+
 // CheckJobs check if Job is valid to add to queue
 func (a *JobWorkQueue) CheckJob(job Job) (bool, error) {
 	log.Debug("checking Job to see if it can be added to queue")
+	if job.Status == StatusFailure {
+		return false, fmt.Errorf("job created failed")
+	}
 
 	if a.IsLock(job) {
 		return false, fmt.Errorf("job has been locked")
@@ -115,19 +106,21 @@ func (a *JobWorkQueue) AddJob(job Job) bool {
 	}
 
 	if len(a.waitJobsQueue) == a.maxWaitQueueLength {
-		log.Info("Job has added into wait work queue with JobID: ", job.JobID)
+		log.Info(fmt.Sprintf("Async Job %s Has moved into workQueue for space pressure", job.JobID))
+		log.Info("Job has moved into work queue with JobID: ", job.JobID)
 		headJob := <-a.waitJobsQueue
 		a.workJobsQueue <- headJob
 	}
 
 	a.waitJobsQueue <- job
-	log.Info("Job has added into wait work queue with JobID: ", job.JobID)
+
+	log.Info(fmt.Sprintf("Job has added into wait work queue with JobID: %s with length %d", job.JobID, len(a.waitJobsQueue)))
 	return true
 }
 
 func (a *JobWorkQueue) Run() bool {
 	if len(a.waitJobsQueue) == 0 {
-		log.Info("Wait work queue is empty")
+		log.Info("wait work queue is empty")
 		return false
 	}
 
@@ -138,36 +131,12 @@ func (a *JobWorkQueue) Run() bool {
 			}
 			headJob := <-waitJobs
 			a.workJobsQueue <- headJob
-			log.Info("Job has added into work queue from waited queue with JobID: ", headJob.JobID)
+			log.Info(fmt.Sprintf("Job %s has added into work queue from waited queue", headJob.JobID))
 		}
 	}(a.waitJobsQueue)
 
 	log.Info("All Job has added into work queue from waited queue")
 	return true
-}
-
-func (a *JobWorkQueue) LockJob(job Job) {
-	var lock sync.Mutex
-	lock.Lock()
-	log.Warning("Lock Job with JobID: ", job.JobID)
-	a.lockJobIDList[job.JobID] = true
-	lock.Unlock()
-}
-
-func (a *JobWorkQueue) IsLock(job Job) bool {
-	log.Debug("Checking if job is locked with JobID: ", job.JobID)
-	if _, ok := a.lockJobIDList[job.JobID]; ok {
-		return true
-	}
-	return false
-}
-
-func (a *JobWorkQueue) UnLockJob(job *Job) {
-	var lock sync.Mutex
-	lock.Lock()
-	log.Info("UnLock Job with JobID: ", job.JobID)
-	job.Lock = false
-	lock.Unlock()
 }
 
 // Start Start the JobWorkQueue
@@ -185,7 +154,8 @@ func (a *JobWorkQueue) Start() {
 
 			subData[subID] = jobdata
 			result[jobID] = subData
-			log.Info("Async Job Finished with JobID: ", res[JOBID].(string), " subID: ", res[SUBID].(string))
+
+			log.Info(fmt.Sprintf("Async Job %s Finished with SubID: %s", res[JOBID].(string), res[SUBID].(string)))
 		}
 	}(a.SharedJobData, dataChans)
 
@@ -197,13 +167,13 @@ func (a *JobWorkQueue) Start() {
 
 			jobData := make([]interface{}, 0)
 			if job.Status == StatusRunning {
-				log.Info("Async Job Has Started with JobID: ", jobID)
+				log.Info(fmt.Sprintf("Async Job %s Has Started", jobID))
 				continue
 			}
 
 			values := job.Handler.Call(job.Params)
 			job.Status = StatusRunning
-			log.Info("Start Async Job with JobID: ", jobID)
+			log.Info(fmt.Sprintf("Async Job %s Has Done", jobID))
 
 			if valuesNum := len(values); valuesNum > 0 {
 				resultItems := make([]interface{}, valuesNum)
@@ -215,94 +185,7 @@ func (a *JobWorkQueue) Start() {
 			}
 
 			dataChans <- map[string]interface{}{JOBID: jobID, SUBID: subID, JOBDATA: jobData}
-			log.Info("Send Async Data with JobID: ", jobID)
+			log.Info(fmt.Sprintf("Async Job %s Has sent Job Data", jobID))
 		}
 	}(a.workJobsQueue, dataChans)
-}
-
-// CleanJobData
-func (a *JobWorkQueue) CleanJobData(jobID string) {
-	delete(a.SharedJobData, jobID)
-}
-
-// CleanJobDatas
-func (a *JobWorkQueue) CleanJobDatas(jobIDList ...string) {
-	for _, jobID := range jobIDList {
-		a.CleanJobData(jobID)
-	}
-}
-
-// Stop
-func (a *JobWorkQueue) Stop() {
-	close(a.workJobsQueue)
-}
-
-// HasJobKey
-func (a *JobWorkQueue) HasJobKey(key string) bool {
-	return len(a.workJobsStatus[key]) != 0
-}
-
-func (a *JobWorkQueue) GetAllJobID() map[string][]string {
-	return a.workJobIDHisory
-}
-
-func (a *JobWorkQueue) GetJobSubID(id string) []string {
-	return a.workJobIDHisory[id]
-}
-
-func (a *JobWorkQueue) GetSingleJobSubID(id string) string {
-	return a.workJobIDHisory[id][0]
-}
-
-func (a *JobWorkQueue) GetJobsData(jobID string) (map[string][]interface{}, bool) {
-	if len(a.SharedJobData) == 0 {
-		return nil, false
-	}
-
-	jobDataList := make(map[string][]interface{})
-	if ok := a.HasJobKey(jobID); ok {
-		for _, subID := range a.GetJobSubID(jobID) {
-			log.Info("Get Job Data with JobID: ", jobID, " subID: ", subID)
-			if _, ok := a.SharedJobData[jobID][subID]; ok {
-				jobDataList[subID] = a.SharedJobData[jobID][subID]
-			} else {
-				log.Info("Can not get Job Data with JobID: ", jobID, " subID: ", subID)
-			}
-		}
-	} else {
-		return nil, false
-	}
-
-	return jobDataList, true
-}
-
-func (a *JobWorkQueue) GetSubJobData(jobID, subJobID string) ([]interface{}, bool) {
-	if jobsData, ok := a.GetJobsData(jobID); ok {
-		return jobsData[subJobID], true
-	} else {
-		return nil, false
-	}
-}
-
-func (a *JobWorkQueue) GetJobData(jobID string) ([]interface{}, bool) {
-	if len(a.SharedJobData) == 0 {
-		return nil, false
-	}
-
-	if _, ok := a.workJobIDHisory[jobID]; ok {
-		if _, ok := a.SharedJobData[jobID][a.GetSingleJobSubID(jobID)]; ok {
-			return a.SharedJobData[jobID][a.GetSingleJobSubID(jobID)], true
-		}
-		return nil, false
-	}
-
-	return nil, false
-}
-
-func (a *JobWorkQueue) SetMaxWorkQueueLength(len int) {
-	a.maxWorkQueueLength = len
-}
-
-func (a *JobWorkQueue) SetMaxWaitQueueLength(len int) {
-	a.maxWaitQueueLength = len
 }
