@@ -37,9 +37,9 @@ func (j *Job) SetTaskName(taskName string) {
 
 func (j *Job) GetSubID() string {
 	if j.EnableSubjob {
-		return j.NewSubJobID
+		return j.JobID + "/" + j.NewSubJobID
 	}
-	return NaN
+	return j.JobID + "/" + NaN
 }
 
 func (j *Job) AddSubJob(id string) {
