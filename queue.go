@@ -81,11 +81,11 @@ func (a *JobWorkQueue) CheckJob(job Job) (bool, error) {
 	}
 
 	if !job.EnableSubjob {
-		if _, e := a.workJobsStatus[job.JobID][NaN]; e {
+		if _, e := a.workJobsStatus[job.JobID][job.GetSubID()]; e {
 			return false, fmt.Errorf("jobs %s has been added", job.JobID)
 		}
 	} else {
-		if _, e := a.workJobsStatus[job.JobID][job.NewSubJobID]; e {
+		if _, e := a.workJobsStatus[job.JobID][job.GetSubID()]; e {
 			return false, fmt.Errorf("sub jobs has been added")
 		}
 	}
@@ -175,12 +175,16 @@ func (a *JobWorkQueue) Start() {
 	dataChans := make(chan map[string]interface{}, a.maxWorkQueueLength)
 
 	go func(result map[string]map[string][]interface{}, dataChans chan map[string]interface{}) {
+		subData := make(map[string][]interface{})
 		for {
 			res := <-dataChans
 			a.workQueueLength--
-			subData := make(map[string][]interface{})
-			subData[res[SUBID].(string)] = res[JOBDATA].([]interface{})
-			result[res[JOBID].(string)] = subData
+			jobID := res[JOBID].(string)
+			subID := res[SUBID].(string)
+			jobdata := res[JOBDATA].([]interface{})
+
+			subData[subID] = jobdata
+			result[jobID] = subData
 			log.Info("Async Job Finished with JobID: ", res[JOBID].(string), " subID: ", res[SUBID].(string))
 		}
 	}(a.SharedJobData, dataChans)
@@ -242,18 +246,27 @@ func (a *JobWorkQueue) GetAllJobID() map[string][]string {
 	return a.workJobIDHisory
 }
 
-func (a *JobWorkQueue) GetJobData(jobID string) ([][]interface{}, bool) {
+func (a *JobWorkQueue) GetJobSubID(id string) []string {
+	return a.workJobIDHisory[id]
+}
+
+func (a *JobWorkQueue) GetSingleJobSubID(id string) string {
+	return a.workJobIDHisory[id][0]
+}
+
+func (a *JobWorkQueue) GetJobsData(jobID string) (map[string][]interface{}, bool) {
 	if len(a.SharedJobData) == 0 {
 		return nil, false
 	}
 
-	var jobDataList [][]interface{}
-	jobDataList = make([][]interface{}, 0)
-
-	if _, ok := a.workJobIDHisory[jobID]; ok {
-		for _, subID := range a.workJobIDHisory[jobID] {
+	jobDataList := make(map[string][]interface{})
+	if ok := a.HasJobKey(jobID); ok {
+		for _, subID := range a.GetJobSubID(jobID) {
+			log.Info("Get Job Data with JobID: ", jobID, " subID: ", subID)
 			if _, ok := a.SharedJobData[jobID][subID]; ok {
-				jobDataList = append(jobDataList, a.SharedJobData[jobID][subID])
+				jobDataList[subID] = a.SharedJobData[jobID][subID]
+			} else {
+				log.Info("Can not get Job Data with JobID: ", jobID, " subID: ", subID)
 			}
 		}
 	} else {
@@ -261,6 +274,29 @@ func (a *JobWorkQueue) GetJobData(jobID string) ([][]interface{}, bool) {
 	}
 
 	return jobDataList, true
+}
+
+func (a *JobWorkQueue) GetSubJobData(jobID, subJobID string) ([]interface{}, bool) {
+	if jobsData, ok := a.GetJobsData(jobID); ok {
+		return jobsData[subJobID], true
+	} else {
+		return nil, false
+	}
+}
+
+func (a *JobWorkQueue) GetJobData(jobID string) ([]interface{}, bool) {
+	if len(a.SharedJobData) == 0 {
+		return nil, false
+	}
+
+	if _, ok := a.workJobIDHisory[jobID]; ok {
+		if _, ok := a.SharedJobData[jobID][a.GetSingleJobSubID(jobID)]; ok {
+			return a.SharedJobData[jobID][a.GetSingleJobSubID(jobID)], true
+		}
+		return nil, false
+	}
+
+	return nil, false
 }
 
 func (a *JobWorkQueue) SetMaxWorkQueueLength(len int) {
