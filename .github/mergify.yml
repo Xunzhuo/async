@@ -1,31 +1,21 @@
----
-queue_rules:
-  - name: default
-    conditions:
-      # Conditions to get out of the queue (= merged)
-      - approved-reviews-by=xunzhuo
 pull_request_rules:
   - name: Automatic merge on CI success and review
     conditions:
-      - approved-reviews-by=xunzhuo
+    - or:
+      - "#approved-reviews-by>=1"
+      - approved-reviews-by=Xunzhuo
+      - approved-reviews-by=Xunzhuo
     actions:
-      queue:
+      merge:
         method: squash
-        name: default
-  - name: ask the maintainer to review PR
-    conditions:
-      - and:
-        - label!=invalid
-        - -draft
-    actions:
-      request_reviews:
-        users:
-          - xunzhuo
   - name: Say hello to contributors
     conditions:
       - -draft
     actions:
       comment:
         message: |
-           Welcome to the [Async](https://github.com/Xunzhuo/async) OpenSource Project!👏
-           Thanks for your contribution! ❤️
+           Welcome to the [Async](https://github.com/merbridge/merbridge) OpenSource Project!👏
+
+           We're delighted to have you onboard 💘
+           
+           Thanks for your contribution, any ideas, issues, PRs are welcomed! ⚡️
