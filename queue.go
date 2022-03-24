@@ -209,6 +209,10 @@ func (a *JobWorkQueue) HasJobKey(key string) bool {
 	return len(a.workJobsStatus[key]) != 0
 }
 
+func (a *JobWorkQueue) GetAllJobID() map[string][]string {
+	return a.workJobIDHisory
+}
+
 func (a *JobWorkQueue) GetJobData(jobID string) ([][]interface{}, bool) {
 	if len(a.SharedJobData) == 0 {
 		return nil, false

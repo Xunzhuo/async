@@ -60,6 +60,51 @@ func TestAsyncWithAddTaskAfterRun(t *testing.T) {
 	}
 }
 
+func TestAsyncWithAddBlindTaskAndRun(t *testing.T) {
+	count := 10
+
+	Engine.Start()
+
+	for {
+		count--
+		Engine.AddTaskAndRun(NewBlindJob(sendRequest, url))
+		if count < 1 {
+			break
+		}
+	}
+
+	time.Sleep(5 * time.Second)
+
+	for jobD := range Engine.GetAllJobID() {
+		_, ok := Engine.GetJobData(jobD)
+		log.Printf("GetJobData %t With JobID %s", ok, jobD)
+	}
+}
+
+func TestAsyncWithAddBlindTaskAfterRun(t *testing.T) {
+	count := 60
+
+	Engine.Start()
+	Engine.SetMaxWaitQueueLength(50)
+
+	for {
+		count--
+		Engine.AddTask(NewBlindJob(sendRequest, url))
+		if count < 1 {
+			break
+		}
+	}
+
+	Engine.Run()
+
+	time.Sleep(5 * time.Second)
+
+	for jobD := range Engine.GetAllJobID() {
+		_, ok := Engine.GetJobData(jobD)
+		log.Printf("GetJobData %t With JobID %s", ok, jobD)
+	}
+}
+
 func TestAsyncWithSameID(t *testing.T) {
 	count := 10
 	jobs := make([]string, 0)

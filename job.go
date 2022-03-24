@@ -73,8 +73,8 @@ func NewJob(jobID string, handler interface{}, params ...interface{}) Job {
 	return newJob(jobID, "", time.Now().Unix(), handler, params...)
 }
 
-func NewBlindJob(handler interface{}, params ...interface{}) (Job, string) {
+func NewBlindJob(handler interface{}, params ...interface{}) Job {
 	uuid := uuid.New()
 	jobID := uuid.String()
-	return newJob(jobID, "", time.Now().Unix(), handler, params...), jobID
+	return newJob(jobID, "", time.Now().Unix(), handler, params...)
 }
