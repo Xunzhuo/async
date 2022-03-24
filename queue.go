@@ -70,9 +70,7 @@ func (a *JobWorkQueue) AddTaskAndRun(job Job) bool {
 		return false
 	}
 
-	var key = job.GetSubID()
-
-	subID := map[string]string{key: StatusPending}
+	subID := map[string]string{job.GetSubID(): StatusPending}
 	a.workJobsStatus[job.JobID] = subID
 	a.workJobsQueue <- job
 	a.workQueueLength++
@@ -180,9 +178,9 @@ func (a *JobWorkQueue) Start() {
 					resultItems[k] = v.Interface()
 				}
 				jobData = resultItems
+				a.workJobIDHisory[jobID] = append(a.workJobIDHisory[jobID], subID)
 			}
 
-			a.workJobIDHisory[jobID] = append(a.workJobIDHisory[jobID], subID)
 			dataChans <- map[string]interface{}{JOBID: jobID, SUBID: subID, JOBDATA: jobData}
 			log.Info("Send Async Data with JobID: ", jobID)
 		}
@@ -211,13 +209,21 @@ func (a *JobWorkQueue) HasJobKey(key string) bool {
 	return len(a.workJobsStatus[key]) != 0
 }
 
-func (a *JobWorkQueue) GetJobData(jobID string) [][]interface{} {
+func (a *JobWorkQueue) GetJobData(jobID string) ([][]interface{}, bool) {
 	var jobDataList [][]interface{}
 	jobDataList = make([][]interface{}, 0)
-	for _, subID := range a.workJobIDHisory[jobID] {
-		jobDataList = append(jobDataList, a.SharedJobData[jobID][subID])
+
+	if _, ok := a.workJobIDHisory[jobID]; ok {
+		for _, subID := range a.workJobIDHisory[jobID] {
+			if _, ok := a.SharedJobData[jobID][subID]; ok {
+				jobDataList = append(jobDataList, a.SharedJobData[jobID][subID])
+			}
+		}
+	} else {
+		return nil, false
 	}
-	return jobDataList
+
+	return jobDataList, true
 }
 
 func (a *JobWorkQueue) SetMaxWorkQueueLength(len int) {
