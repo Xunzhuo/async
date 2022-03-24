@@ -89,86 +89,38 @@ Async is a lightwight, easy-to-use, high performance, more human-being Asynchron
 * [Docker-Compose](https://docs.docker.com/compose/)
 
 <!-- USAGE EXAMPLES -->
-## Usage
+## Concepts
 
 Async supports two Running Mode:
 + The Standalone Job mode
+  In this mode, each job has an unique JobID, you can create one job for one JobID
 + The Master/Slave Job mode
+  In this mode, the job ID can be called as master job ID, the master job ID is unique as well
+  one master job ID can contains a few slave jobs with subID, you can create one master job with many slave jobs
 
-### The Standalone Job mode
+**Async takes JobID as the key to create/find/update/delete Job**
+
+JobID in Async has two kinds:
++ jobID: 
+  + the unique job id in standalone job mode
+  + the master job id in master/slave job mode
++ subID: the slave id in master/slave job mode
+
+### Quick Start
 
 ``` go
-package main
-
-import (
-	"fmt"
-	"math/rand"
-	"time"
-
-	"github.com/Xunzhuo/async"
-	log "github.com/sirupsen/logrus"
-)
-
-func main() {
-	workQueue := async.NewJobQueue(
-		async.WithMaxWaitQueueLength(100),
-		async.WithMaxWorkQueueLength(100),
-	)
-
-	workQueue.Start()
-
-	stop := make(chan bool)
-	stopData := make(chan bool)
-	jobID := make(chan string, 1000)
-
-	go func() {
-		for {
-			select {
-			case _, ok := <-stop:
-				if !ok {
-					return
-				}
-				return
-			default:
-				id := fmt.Sprintf("%d", rand.Intn(1000000))
-				jobID <- id
-				log.Warning("Send Job ID: ", id)
-				workQueue.AddJobAndRun(async.NewJob(id, fakeJob, "xunzhuo"))
-			}
-		}
-	}()
-
-	time.Sleep(5 * time.Second)
-	stop <- true
-	close(stop)
-
-	go func() {
-		for {
-			time.Sleep(100 * time.Millisecond)
-			select {
-			case _, ok := <-stopData:
-				if !ok {
-					return
-				}
-				return
-			case job := <-jobID:
-				log.Warning("Received Job ID: ", job)
-				if data, ok := workQueue.GetJobData(job); ok {
-					log.Warningf(fmt.Sprintf("Get data from workQueue %s with ID: %s", data[0].(string), job))
-				}
-			}
-		}
-	}()
-
-	time.Sleep(5 * time.Second)
-	stopData <- true
-	close(stopData)
-}
-
-func fakeJob(value string) string {
-	return "Hello World from " + value
-}
+  // create a job
+	job := async.NewJob("Unique JobID", JobFunc, JobFuncParams)
+  // add job to default engine
+	async.Engine.AddJobAndRun(job)
+  // get job data by job id
+	async.Engine.GetJobData("Unique JobID")
 ```
+
+### Demo
+
++ [The Standalone Job mode](demos/standalone/standalone.go)
++ [The Master/Slave Job mode](demos/masterSlave/masterSlave.go)
 
 <!-- ROADMAP -->
 ## Roadmap
