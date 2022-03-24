@@ -95,8 +95,12 @@ Async is a lightwight, easy-to-use, high performance, more human-being Asynchron
 
 See the [open issues](https://github.com/Xunzhuo/async/issues) for a full list of proposed features (and known issues).
 
+## Contributors
 
-<!-- CONTRIBUTING -->
+<a href="https://github.com/merbridge/merbridge/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=Xunzhuo/async" />
+</a>
+
 ## Contributing
 
 Contributions are what make the open source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
