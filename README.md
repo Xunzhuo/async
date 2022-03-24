@@ -95,32 +95,78 @@ Async supports two Running Mode:
 + The Standalone Job mode
 + The Master/Slave Job mode
 
-### 
+### The Standalone Job mode
 
 ``` go
-func TestAsyncWithAddTaskAndRun(t *testing.T) {
-	count := 10
-	jobs := make([]string, 0)
+package main
 
-	Engine.Start()
+import (
+	"fmt"
+	"math/rand"
+	"time"
 
-	for {
-		count--
-		jobID := fmt.Sprintf("%d", rand.Intn(100000))
-		jobs = append(jobs, jobID)
-		Engine.AddJobAndRun(NewJob(jobID, sendRequest, url))
-		if count < 1 {
-			break
+	"github.com/Xunzhuo/async"
+	log "github.com/sirupsen/logrus"
+)
+
+func main() {
+	workQueue := async.NewJobQueue(
+		async.WithMaxWaitQueueLength(100),
+		async.WithMaxWorkQueueLength(100),
+	)
+
+	workQueue.Start()
+
+	stop := make(chan bool)
+	stopData := make(chan bool)
+	jobID := make(chan string, 1000)
+
+	go func() {
+		for {
+			select {
+			case _, ok := <-stop:
+				if !ok {
+					return
+				}
+				return
+			default:
+				id := fmt.Sprintf("%d", rand.Intn(1000000))
+				jobID <- id
+				log.Warning("Send Job ID: ", id)
+				workQueue.AddJobAndRun(async.NewJob(id, fakeJob, "xunzhuo"))
+			}
 		}
-	}
-  
+	}()
+
 	time.Sleep(5 * time.Second)
-	for _, job := range jobs {
-		data, ok := Engine.GetJobData(job)
-		if ok {
-			log.Printf("GetJobData %t With JobID %s of Data %s", ok, job, data[0].(string))
+	stop <- true
+	close(stop)
+
+	go func() {
+		for {
+			time.Sleep(100 * time.Millisecond)
+			select {
+			case _, ok := <-stopData:
+				if !ok {
+					return
+				}
+				return
+			case job := <-jobID:
+				log.Warning("Received Job ID: ", job)
+				if data, ok := workQueue.GetJobData(job); ok {
+					log.Warningf(fmt.Sprintf("Get data from workQueue %s with ID: %s", data[0].(string), job))
+				}
+			}
 		}
-	}
+	}()
+
+	time.Sleep(5 * time.Second)
+	stopData <- true
+	close(stopData)
+}
+
+func fakeJob(value string) string {
+	return "Hello World from " + value
 }
 ```
 

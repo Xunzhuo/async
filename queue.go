@@ -58,6 +58,10 @@ func (a *JobWorkQueue) SetMaxWaitQueueLength(len int) {
 
 // CheckJobs check if Job is valid to add to queue
 func (a *JobWorkQueue) CheckJob(job Job) (bool, error) {
+	if a.workQueueLength == a.maxWorkQueueLength {
+		return false, fmt.Errorf("work Queue is full")
+	}
+
 	log.Debug("checking Job to see if it can be added to queue")
 	if job.Status == StatusFailure {
 		return false, fmt.Errorf("job created failed")
