@@ -24,18 +24,47 @@ type JobWorkQueue struct {
 	SharedJobDataChannel chan map[string]map[string][]interface{}
 }
 
+type JobWorkQueueOptions struct {
+	MaxWaitQueueLength int
+	MaxWorkQueueLength int
+}
+
+type Option func(*JobWorkQueueOptions)
+
+func WithMaxWaitQueueLength(maxWaitQueueLength int) Option {
+	return func(opt *JobWorkQueueOptions) {
+		opt.MaxWaitQueueLength = maxWaitQueueLength
+	}
+}
+
+func WithMaxWorkQueueLength(maxWorkQueueLength int) Option {
+	return func(opt *JobWorkQueueOptions) {
+		opt.MaxWorkQueueLength = maxWorkQueueLength
+	}
+}
+
 // NewJobQueue create a Empty JobWorkQueue
-func NewJobQueue() JobWorkQueue {
+func NewJobQueue(opts ...Option) JobWorkQueue {
+	opt := new(JobWorkQueueOptions)
+	for _, o := range opts {
+		o(opt)
+	}
+	if opt.MaxWaitQueueLength == 0 {
+		opt.MaxWaitQueueLength = 100
+	}
+	if opt.MaxWorkQueueLength == 0 {
+		opt.MaxWorkQueueLength = 100
+	}
 	return JobWorkQueue{
-		maxWaitQueueLength:   100,
-		maxWorkQueueLength:   100,
-		workJobsQueue:        make(chan Job, 100),
+		maxWaitQueueLength:   opt.MaxWaitQueueLength,
+		maxWorkQueueLength:   opt.MaxWorkQueueLength,
+		workJobsQueue:        make(chan Job, opt.MaxWorkQueueLength),
 		workJobsStatus:       make(map[string]map[string]string),
 		workJobIDHisory:      make(map[string][]string),
 		SharedJobData:        make(map[string]map[string][]interface{}),
 		SharedJobDataChannel: make(chan map[string]map[string][]interface{}),
 		lockJobIDList:        make(map[string]bool),
-		waitJobsQueue:        make(chan Job, 100),
+		waitJobsQueue:        make(chan Job, opt.MaxWaitQueueLength),
 	}
 }
 
