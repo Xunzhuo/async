@@ -21,7 +21,7 @@ func TestAsyncWithAddTaskAndRun(t *testing.T) {
 		count--
 		jobID := fmt.Sprintf("%d", rand.Intn(100000))
 		jobs = append(jobs, jobID)
-		Engine.AddTaskAndRun(NewJob(jobID, sendRequest, url))
+		Engine.AddJobAndRun(NewJob(jobID, sendRequest, url))
 		if count < 1 {
 			break
 		}
@@ -46,7 +46,7 @@ func TestAsyncWithAddTaskAfterRun(t *testing.T) {
 		count--
 		jobID := fmt.Sprintf("%d", rand.Intn(100000))
 		jobs = append(jobs, jobID)
-		Engine.AddTask(NewJob(jobID, sendRequest, url))
+		Engine.AddJob(NewJob(jobID, sendRequest, url))
 		if count < 1 {
 			break
 		}
@@ -71,7 +71,7 @@ func TestAsyncWithAddBlindTaskAndRun(t *testing.T) {
 
 	for {
 		count--
-		Engine.AddTaskAndRun(NewBlindJob(sendRequest, url))
+		Engine.AddJobAndRun(NewBlindJob(sendRequest, url))
 		if count < 1 {
 			break
 		}
@@ -95,7 +95,7 @@ func TestAsyncWithAddBlindTaskAfterRun(t *testing.T) {
 
 	for {
 		count--
-		Engine.AddTask(NewBlindJob(sendRequest, url))
+		Engine.AddJob(NewBlindJob(sendRequest, url))
 		if count < 1 {
 			break
 		}
@@ -123,7 +123,7 @@ func TestAsyncWithSameID(t *testing.T) {
 		count--
 		jobID := "sameID"
 		jobs = append(jobs, jobID)
-		Engine.AddTaskAndRun(NewJob(jobID, sendRequest, url))
+		Engine.AddJobAndRun(NewJob(jobID, sendRequest, url))
 		if count < 1 {
 			break
 		}
@@ -149,7 +149,7 @@ func TestAsyncWithSubJobs(t *testing.T) {
 		subID := fmt.Sprintf("%d", rand.Intn(100000))
 		masterJob := NewJob(jobID, sendRequest, url)
 		masterJob.AddSubJob(subID)
-		Engine.AddTaskAndRun(masterJob)
+		Engine.AddJobAndRun(masterJob)
 
 		if count < 1 {
 			break
@@ -176,7 +176,7 @@ func TestAsyncWithSubJobData(t *testing.T) {
 		subID := fmt.Sprintf("%d", rand.Intn(100000))
 		masterJob := NewJob(jobID, sendRequest, url)
 		masterJob.AddSubJob(subID)
-		Engine.AddTaskAndRun(masterJob)
+		Engine.AddJobAndRun(masterJob)
 
 		if count < 1 {
 			break
@@ -206,7 +206,7 @@ func TestAsyncWithSubJobsID(t *testing.T) {
 		jobs = append(jobs, jobID)
 		masterJob := NewJob(jobID, sendRequest, url)
 		masterJob.AddSubJob(subID)
-		Engine.AddTaskAndRun(masterJob)
+		Engine.AddJobAndRun(masterJob)
 
 		if count < 1 {
 			break
@@ -242,7 +242,7 @@ func TestAsyncWithParams(t *testing.T) {
 		count--
 		jobID := fmt.Sprintf("%d", rand.Intn(100000))
 		jobs = append(jobs, jobID)
-		Engine.AddTaskAndRun(NewJob(jobID, sendFakeRequest, url, jobID))
+		Engine.AddJobAndRun(NewJob(jobID, sendFakeRequest, url, jobID))
 		if count < 1 {
 			break
 		}
