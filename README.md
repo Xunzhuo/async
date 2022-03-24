@@ -61,6 +61,7 @@ Async is a lightwight, easy-to-use, high performance, more human-being Asynchron
 ### Spotlights
 
 + Async is very easy to use, creating the jobs just by a couple of lines.
++ Support **master/slave** job mode or **standalone** job mode 
 + Provide powerful options to control the jobs like the MaxNumber of WorkQueue.
 + Provide inner cache to speed up to get the cached jobs data.
 + Help you easily manage your jobs into asynchronous way like:
@@ -89,6 +90,39 @@ Async is a lightwight, easy-to-use, high performance, more human-being Asynchron
 
 <!-- USAGE EXAMPLES -->
 ## Usage
+
+Async supports two Running Mode:
++ The Standalone Job mode
++ The Master/Slave Job mode
+
+### 
+
+``` go
+func TestAsyncWithAddTaskAndRun(t *testing.T) {
+	count := 10
+	jobs := make([]string, 0)
+
+	Engine.Start()
+
+	for {
+		count--
+		jobID := fmt.Sprintf("%d", rand.Intn(100000))
+		jobs = append(jobs, jobID)
+		Engine.AddJobAndRun(NewJob(jobID, sendRequest, url))
+		if count < 1 {
+			break
+		}
+	}
+  
+	time.Sleep(5 * time.Second)
+	for _, job := range jobs {
+		data, ok := Engine.GetJobData(job)
+		if ok {
+			log.Printf("GetJobData %t With JobID %s of Data %s", ok, job, data[0].(string))
+		}
+	}
+}
+```
 
 <!-- ROADMAP -->
 ## Roadmap
