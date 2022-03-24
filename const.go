@@ -1,5 +1,6 @@
 package async
 
+// values of some keys
 const (
 	NaN     = "NaN"
 	JOBID   = "JobID"
@@ -7,6 +8,7 @@ const (
 	JOBDATA = "JobData"
 )
 
+// values of status
 const (
 	// StatusPending ...
 	StatusPending = "pending"

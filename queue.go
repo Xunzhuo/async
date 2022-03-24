@@ -210,6 +210,10 @@ func (a *JobWorkQueue) HasJobKey(key string) bool {
 }
 
 func (a *JobWorkQueue) GetJobData(jobID string) ([][]interface{}, bool) {
+	if len(a.SharedJobData) == 0 {
+		return nil, false
+	}
+
 	var jobDataList [][]interface{}
 	jobDataList = make([][]interface{}, 0)
 
