@@ -17,12 +17,15 @@
   </a>
 
 <h1 align="center"> Async </h3>
-
   <p align="center">
     Async is a lightwight, easy-to-use, high performance, more human-being Asynchronous Engine
   </p>
 </div>
 
+[![GoDoc](https://godoc.org/github.com/Xunzhuo/async?status.svg)](https://godoc.org/github.com/Xunzhuo/async)
+[![Build Status](https://travis-ci.org/KXunzhuo/async.svg?branch=master)](https://travis-ci.org/Xunzhuo/async)
+[![Go Report Card](https://goreportcard.com/badge/github.com/Xunzhuo/async)](https://goreportcard.com/report/github.com/Xunzhuo/async)
+[![Coverage Status](https://coveralls.io/repos/github/Xunzhuo/async/badge.svg?branch=master)](https://coveralls.io/github/Xunzhuo/async?branch=master)
 
 
 <!-- TABLE OF CONTENTS -->
