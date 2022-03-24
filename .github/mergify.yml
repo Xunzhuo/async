@@ -1,0 +1,31 @@
+---
+queue_rules:
+  - name: default
+    conditions:
+      # Conditions to get out of the queue (= merged)
+      - approved-reviews-by=xunzhuo
+pull_request_rules:
+  - name: Automatic merge on CI success and review
+    conditions:
+      - approved-reviews-by=xunzhuo
+    actions:
+      queue:
+        method: squash
+        name: default
+  - name: ask the maintainer to review PR
+    conditions:
+      - and:
+        - label!=invalid
+        - -draft
+    actions:
+      request_reviews:
+        users:
+          - xunzhuo
+  - name: Say hello to contributors
+    conditions:
+      - -draft
+    actions:
+      comment:
+        message: |
+           Welcome to the [Async](https://github.com/Xunzhuo/async) OpenSource Project!👏
+           Thanks for your contribution! ❤️
