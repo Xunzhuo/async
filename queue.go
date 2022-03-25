@@ -165,7 +165,6 @@ func (a *JobWorkQueue) Start() {
 			jobID := job.JobID
 			subID := job.GetSubID()
 
-			jobData := make([]interface{}, 0)
 			if job.Status == StatusRunning {
 				log.Info(fmt.Sprintf("Async Job %s Has Started", jobID))
 				continue
@@ -175,15 +174,14 @@ func (a *JobWorkQueue) Start() {
 			job.Status = StatusRunning
 			log.Info(fmt.Sprintf("Async Job %s Has Done", jobID))
 
+			jobData := make([]interface{}, 0, len(values))
+
 			if valuesNum := len(values); valuesNum > 0 {
-				resultItems := make([]interface{}, valuesNum)
 				for _, v := range values {
-					resultItems = append(resultItems, v.Interface())
+					jobData = append(jobData, v.Interface())
 				}
-				jobData = resultItems
 				a.workJobIDHisory[jobID] = append(a.workJobIDHisory[jobID], subID)
 			}
-
 			dataChans <- map[string]interface{}{JOBID: jobID, SUBID: subID, JOBDATA: jobData}
 			log.Info(fmt.Sprintf("Async Job %s Has sent Job Data", jobID))
 		}
