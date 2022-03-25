@@ -58,6 +58,10 @@ func (a *JobWorkQueue) SetMaxWaitQueueLength(len int) {
 
 // CheckJobs check if Job is valid to add to queue
 func (a *JobWorkQueue) CheckJob(job Job) (bool, error) {
+	if a.IsFull() {
+		return false, fmt.Errorf("work Queue is full")
+	}
+
 	log.Debug("checking Job to see if it can be added to queue")
 	if job.Status == StatusFailure {
 		return false, fmt.Errorf("job created failed")
@@ -177,8 +181,9 @@ func (a *JobWorkQueue) Start() {
 			jobData := make([]interface{}, 0, len(values))
 
 			if valuesNum := len(values); valuesNum > 0 {
+				resultItems := make([]interface{}, valuesNum)
 				for _, v := range values {
-					jobData = append(jobData, v.Interface())
+					resultItems = append(resultItems, v.Interface())
 				}
 				a.workJobIDHisory[jobID] = append(a.workJobIDHisory[jobID], subID)
 			}
@@ -186,4 +191,9 @@ func (a *JobWorkQueue) Start() {
 			log.Info(fmt.Sprintf("Async Job %s Has sent Job Data", jobID))
 		}
 	}(a.workJobsQueue, dataChans)
+}
+
+// IsFull check workqueue if it is full
+func (a *JobWorkQueue) IsFull() bool {
+	return a.maxWorkQueueLength <= a.workQueueLength
 }
