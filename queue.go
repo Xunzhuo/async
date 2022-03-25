@@ -181,9 +181,8 @@ func (a *JobWorkQueue) Start() {
 			jobData := make([]interface{}, 0, len(values))
 
 			if valuesNum := len(values); valuesNum > 0 {
-				resultItems := make([]interface{}, valuesNum)
 				for _, v := range values {
-					resultItems = append(resultItems, v.Interface())
+					jobData = append(jobData, v.Interface())
 				}
 				a.workJobIDHisory[jobID] = append(a.workJobIDHisory[jobID], subID)
 			}
