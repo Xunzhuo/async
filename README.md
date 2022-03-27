@@ -18,7 +18,7 @@
 
 <h1 align="center"> Async </h3>
   <p align="center">
-    Async is a lightwight, easy-to-use, high performance, more human-being Asynchronous async.DefaultAsyncQueue()
+    Async is a lightwight, easy-to-use, high performance, more human-being Asynchronous Framework
   </p>
 </div>
 
