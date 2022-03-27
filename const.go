@@ -2,10 +2,10 @@ package async
 
 // values of some keys
 const (
-	NaN     = "NaN"
-	JOBID   = "JobID"
-	SUBID   = "SubID"
-	JOBDATA = "JobData"
+	keyOfJobID   = "JobID"
+	keyOfSubID   = "SubID"
+	keyOfjobData = "JobData"
+	keyOfnoSubID = "noSubID"
 )
 
 // values of status
@@ -24,4 +24,12 @@ const (
 	StatusSkipped = "skipped"
 	// StatusUnknown ...
 	StatusUnknown = "Unknown"
+)
+
+// values of options
+const (
+	// DefaultWorkQueueCapacity ...
+	DefaultWorkQueueCapacity = 100
+	// DefaultWaitQueueCapacity ...
+	DefaultWaitQueueCapacity = 100
 )

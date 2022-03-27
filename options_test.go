@@ -1,8 +1,6 @@
 package async
 
 import (
-	"fmt"
-	"math/rand"
 	"testing"
 	"time"
 
@@ -10,12 +8,11 @@ import (
 )
 
 func TestCreateWorkQueueWithOptions(t *testing.T) {
-	workQueue := NewJobQueue(
-		WithMaxWaitQueueLength(10),
-		WithMaxWorkQueueLength(10),
-	)
+	workQueue := Q().
+		SetMaxWaitQueueLength(100).
+		SetMaxWorkQueueLength(100).
+		Start()
 
-	workQueue.Start()
 	stop := make(chan bool)
 
 	go func() {
@@ -27,8 +24,9 @@ func TestCreateWorkQueueWithOptions(t *testing.T) {
 				}
 				return
 			default:
-				id := fmt.Sprintf("%d", rand.Intn(1000000))
-				workQueue.AddJob(NewJob(id, fakeJobV2, "xunzhuo"))
+				time.Sleep(100 * time.Millisecond)
+				// id := fmt.Sprintf("%d", rand.Intn(1000000))
+				workQueue.AddJobAndRun(NewJob(fakeJobV2, "xunzhuo"))
 			}
 		}
 	}()

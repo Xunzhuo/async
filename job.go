@@ -9,77 +9,69 @@ import (
 
 // Job Item in Async Queue
 type Job struct {
-	JobKey
+	key
+	taskName  string
+	startTime int64
 
-	TaskName  string
-	StartTime int64
-	Status    string
-
-	Handler reflect.Value
-	Params  []reflect.Value
+	handler reflect.Value
+	params  []reflect.Value
 }
 
-type JobKey struct {
-	Lock         bool
-	JobID        string
-	NewSubJobID  string
-	SubJobIDs    []string
-	EnableSubjob bool
+func (j *Job) SetTaskName(taskName string) *Job {
+	j.taskName = taskName
+	return j
 }
 
-func (j *Job) SetStatus(status string) {
-	j.Status = status
+func (j *Job) GetTaskName() string {
+	return j.taskName
 }
 
-func (j *Job) SetTaskName(taskName string) {
-	j.TaskName = taskName
+func (j *Job) SetJobID(jobID string) *Job {
+	j.JobID = jobID
+	return j
+}
+
+func (j *Job) GetJobID() string {
+	return j.JobID
 }
 
 func (j *Job) GetSubID() string {
 	if j.EnableSubjob {
-		return j.JobID + "/" + j.NewSubJobID
+		return j.JobID + "-" + j.SubID
 	}
-	return j.JobID + "/" + NaN
+	return j.JobID + "-" + keyOfnoSubID
 }
 
-func (j *Job) AddSubJob(id string) {
+func (j *Job) SetSubID(id string) *Job {
 	j.EnableSubjob = true
-	j.NewSubJobID = id
+	j.SubID = id
 	j.SubJobIDs = append(j.SubJobIDs, id)
+	return j
+}
+
+func NewJob(handler interface{}, params ...interface{}) *Job {
+	uuid := uuid.New()
+	jobID := uuid.String()
+	return newJob(jobID, "", time.Now().Unix(), handler, params...)
 }
 
 func newJob(jobID string, taskName string, startTime int64,
-	handler interface{}, params ...interface{}) Job {
+	handler interface{}, params ...interface{}) *Job {
 
 	newJob := Job{
-		TaskName:  taskName,
-		StartTime: startTime,
-		Handler:   reflect.ValueOf(handler),
-		Params:    make([]reflect.Value, 0),
+		key:       *newKey(),
+		taskName:  taskName,
+		startTime: startTime,
+		handler:   reflect.ValueOf(handler),
+		params:    make([]reflect.Value, 0),
 	}
-
-	if handler == nil {
-		newJob.Status = StatusFailure
-		return newJob
-	}
-
 	newJob.JobID = jobID
 
 	if len(params) != 0 {
 		for _, param := range params {
-			newJob.Params = append(newJob.Params, reflect.ValueOf(param))
+			newJob.params = append(newJob.params, reflect.ValueOf(param))
 		}
 	}
 
-	return newJob
-}
-
-func NewJob(jobID string, handler interface{}, params ...interface{}) Job {
-	return newJob(jobID, "", time.Now().Unix(), handler, params...)
-}
-
-func NewBlindJob(handler interface{}, params ...interface{}) Job {
-	uuid := uuid.New()
-	jobID := uuid.String()
-	return newJob(jobID, "", time.Now().Unix(), handler, params...)
+	return &newJob
 }

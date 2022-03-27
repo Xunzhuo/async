@@ -11,11 +11,11 @@ import (
 
 func main() {
 
-	async.Engine.Start()
+	async.DefaultAsyncQueue().Start()
 
 	stop := make(chan bool)
 	stopData := make(chan bool)
-	jobID := make(chan string, 1000)
+	jobID := make(chan async.Job, 1000)
 
 	go func() {
 		for {
@@ -27,8 +27,9 @@ func main() {
 				return
 			default:
 				id := fmt.Sprintf("%d", rand.Intn(1000000))
-				if ok := async.Engine.AddJobAndRun(async.NewJob(id, longTimeJob, "xunzhuo")); ok {
-					jobID <- id
+				job := async.NewJob(longTimeJob, "xunzhuo")
+				if ok := async.DefaultAsyncQueue().AddJobAndRun(job); ok {
+					jobID <- *job
 					log.Warning("Send Job ID: ", id)
 				} else {
 					log.Warning("Reject Job ID: ", id)
@@ -37,7 +38,7 @@ func main() {
 		}
 	}()
 
-	time.Sleep(60 * time.Second)
+	time.Sleep(5 * time.Second)
 	stop <- true
 	close(stop)
 
@@ -51,9 +52,9 @@ func main() {
 				}
 				return
 			case job := <-jobID:
-				log.Warning("Received Job ID: ", job)
-				if data, ok := async.Engine.GetJobData(job); ok {
-					log.Warningf(fmt.Sprintf("Get data from WorkQueue %s with ID: %s", data[0].(string), job))
+				log.Warning("Received Job ID: ", job.JobID)
+				if data, ok := async.DefaultAsyncQueue().GetJobData(job); ok {
+					log.Warningf(fmt.Sprintf("Get data from WorkQueue %s with ID: %s", data[0].(string), job.GetJobID()))
 				}
 			}
 		}

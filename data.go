@@ -2,19 +2,19 @@ package async
 
 import log "github.com/sirupsen/logrus"
 
-func (a *JobWorkQueue) GetJobsData(jobID string) (map[string][]interface{}, bool) {
+func (a *Queue) GetJobsData(job Job) (map[string][]interface{}, bool) {
 	if len(a.SharedJobData) == 0 {
 		return nil, false
 	}
 
 	jobDataList := make(map[string][]interface{})
-	if ok := a.HasJobKey(jobID); ok {
-		for _, subID := range a.GetJobSubID(jobID) {
-			log.Info("Get Job Data with JobID: ", jobID, " subID: ", subID)
-			if _, ok := a.SharedJobData[jobID][subID]; ok {
-				jobDataList[subID] = a.SharedJobData[jobID][subID]
+	if ok := a.HasJob(job); ok {
+		for _, subID := range a.GetJobSubID(job.JobID) {
+			log.Info("Get Job Data with job.JobID: ", job.JobID, " subID: ", subID)
+			if _, ok := a.SharedJobData[job.JobID][subID]; ok {
+				jobDataList[subID] = append(jobDataList[subID], a.SharedJobData[job.JobID][subID])
 			} else {
-				log.Info("Can not get Job Data with JobID: ", jobID, " subID: ", subID)
+				log.Info("Can not get Job Data with job.JobID: ", job.JobID, " subID: ", subID)
 			}
 		}
 	} else {
@@ -24,22 +24,22 @@ func (a *JobWorkQueue) GetJobsData(jobID string) (map[string][]interface{}, bool
 	return jobDataList, true
 }
 
-func (a *JobWorkQueue) GetSubJobData(jobID, subJobID string) ([]interface{}, bool) {
-	if jobsData, ok := a.GetJobsData(jobID); ok {
-		return jobsData[subJobID], true
+func (a *Queue) GetSubJobData(job Job) ([]interface{}, bool) {
+	if jobsData, ok := a.GetJobsData(job); ok {
+		return jobsData[job.SubID], true
 	} else {
 		return nil, false
 	}
 }
 
-func (a *JobWorkQueue) GetJobData(jobID string) ([]interface{}, bool) {
+func (a *Queue) GetJobData(job Job) ([]interface{}, bool) {
 	if len(a.SharedJobData) == 0 {
 		return nil, false
 	}
 
-	if _, ok := a.workJobIDHisory[jobID]; ok {
-		if _, ok := a.SharedJobData[jobID][a.GetSingleJobSubID(jobID)]; ok {
-			return a.SharedJobData[jobID][a.GetSingleJobSubID(jobID)], true
+	if _, ok := a.SharedJobData[job.JobID]; ok {
+		if _, ok := a.SharedJobData[job.JobID][a.GetSingleJobSubID(job.JobID)]; ok {
+			return a.SharedJobData[job.JobID][a.GetSingleJobSubID(job.JobID)], true
 		}
 		return nil, false
 	}
@@ -48,13 +48,13 @@ func (a *JobWorkQueue) GetJobData(jobID string) ([]interface{}, bool) {
 }
 
 // CleanJobData
-func (a *JobWorkQueue) CleanJobData(jobID string) {
-	delete(a.SharedJobData, jobID)
+func (a *Queue) CleanJobData(job Job) {
+	delete(a.SharedJobData, job.JobID)
 }
 
 // CleanJobDatas
-func (a *JobWorkQueue) CleanJobDatas(jobIDList ...string) {
-	for _, jobID := range jobIDList {
-		a.CleanJobData(jobID)
+func (a *Queue) CleanJobDatas(jobIDList ...Job) {
+	for _, job := range jobIDList {
+		a.CleanJobData(job)
 	}
 }

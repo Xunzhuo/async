@@ -10,16 +10,15 @@ import (
 )
 
 func main() {
-	workQueue := async.NewJobQueue(
-		async.WithMaxWaitQueueLength(100),
-		async.WithMaxWorkQueueLength(100),
-	)
+	workQueue := async.Q().
+		SetMaxWaitQueueLength(100).
+		SetMaxWorkQueueLength(100)
 
 	workQueue.Start()
 
 	stop := make(chan bool)
 	stopData := make(chan bool)
-	jobID := make(chan string, 1000)
+	jobID := make(chan async.Job, 1000)
 
 	go func() {
 		for {
@@ -35,10 +34,10 @@ func main() {
 				if !workQueue.IsFull() {
 					for {
 						slaveID := fmt.Sprintf("%d", rand.Intn(1000000))
-						job := async.NewJob(masterID, longTimeJob, "xunzhuo")
-						job.AddSubJob(slaveID)
+						job := async.NewJob(longTimeJob, "xunzhuo").SetJobID(masterID)
+						job.SetSubID(slaveID)
 						if ok := workQueue.AddJobAndRun(job); ok {
-							jobID <- masterID
+							jobID <- *job
 							log.Warning("Send Job ID: ", masterID)
 						}
 						if counter < 1 {
@@ -66,10 +65,10 @@ func main() {
 				}
 				return
 			case job := <-jobID:
-				log.Info("Received Job ID: ", job)
+				log.Info("Received Job ID: ", job.JobID)
 				if datas, ok := workQueue.GetJobsData(job); ok {
 					for _, data := range datas {
-						log.Warningf(fmt.Sprintf("Get data from workQueue %s with ID: %s", data[0].(string), job))
+						log.Warningf(fmt.Sprintf("Get data from workQueue %s with ID: %s", data[0].(string), job.GetJobID()))
 					}
 				}
 			}

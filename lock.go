@@ -2,30 +2,53 @@ package async
 
 import (
 	"sync"
-
-	log "github.com/sirupsen/logrus"
 )
 
-func (a *JobWorkQueue) LockJob(job Job) {
-	var lock sync.Mutex
-	lock.Lock()
-	log.Warning("Lock Job with JobID: ", job.JobID)
-	a.lockJobIDList[job.JobID] = true
-	lock.Unlock()
+var queueLocker = newLocker()
+
+type asyncJobLocker struct {
+	locker   *sync.RWMutex
+	lockList map[string]bool
 }
 
-func (a *JobWorkQueue) IsLock(job Job) bool {
-	log.Debug("Checking if job is locked with JobID: ", job.JobID)
-	if _, ok := a.lockJobIDList[job.JobID]; ok {
+func (l *asyncJobLocker) hasLock(job *Job) bool {
+	if status, ok := l.lockList[job.JobID]; ok && status {
 		return true
 	}
 	return false
 }
 
-func (a *JobWorkQueue) UnLockJob(job *Job) {
-	var lock sync.Mutex
-	lock.Lock()
-	log.Info("UnLock Job with JobID: ", job.JobID)
-	job.Lock = false
-	lock.Unlock()
+func (l *asyncJobLocker) getLockJobs() []string {
+	lockJobs := make([]string, 0)
+	for lockJob := range l.lockList {
+		lockJobs = append(lockJobs, lockJob)
+	}
+	return lockJobs
+}
+
+func newLocker() *asyncJobLocker {
+	return &asyncJobLocker{
+		locker:   new(sync.RWMutex),
+		lockList: make(map[string]bool),
+	}
+}
+
+func (a *Queue) LockJob(job *Job) {
+	queueLocker.locker.Lock()
+	defer queueLocker.locker.Unlock()
+	queueLocker.lockList[job.JobID] = true
+}
+
+func (a *Queue) IsLock(job *Job) bool {
+	return queueLocker.hasLock(job)
+}
+
+func (a *Queue) UnLockJob(job *Job) {
+	queueLocker.locker.Lock()
+	defer queueLocker.locker.Unlock()
+	queueLocker.lockList[job.JobID] = false
+}
+
+func (a *Queue) GetLockJobs() []string {
+	return queueLocker.getLockJobs()
 }

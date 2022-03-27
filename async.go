@@ -1,8 +1,12 @@
 package async
 
-// NewJobQueue() create an async events queue
-var Engine JobWorkQueue
+// async.DefaultAsyncQueue() create an default job workQueue
+var defaultAsyncQueue *Queue = Q()
 
-func init() {
-	Engine = NewJobQueue()
+func DefaultAsyncQueue() *Queue {
+	return defaultAsyncQueue
+}
+
+func SetDfaultAsyncQueue(q *Queue) {
+	defaultAsyncQueue = q
 }
