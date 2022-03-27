@@ -60,7 +60,7 @@
 <!-- ABOUT THE PROJECT -->
 ## About this Project
 
-Async is a lightwight, easy-to-use, high performance, more human-being Asynchronous async.DefaultAsyncQueue()
+Async is a lightwight, easy-to-use, high performance, more human-being Asynchronous Framework
 
 ### Spotlights
 
@@ -113,10 +113,10 @@ JobID in Async has two kinds:
 ### Quick Start
 
 ``` go
-	async.Q().
-		SetMaxWaitQueueLength(100).
-		SetMaxWorkQueueLength(100).
-		Start().AddJobAndRun(async.NewJob(longTimeJob))
+async.Q().
+	SetMaxWaitQueueLength(100).
+	SetMaxWorkQueueLength(100).
+	Start().AddJobAndRun(async.NewJob(longTimeJob))
 ```
 
 ### Demo
