@@ -69,7 +69,7 @@ func (a *Queue) CheckJob(job *Job) (bool, error) {
 // AddJobAndRun Add Job to workQueue and run it
 func (a *Queue) AddJobAndRun(job *Job) bool {
 	if _, err := a.CheckJob(job); err != nil {
-		log.Warningf(fmt.Sprintf("Add Job Denied: %v", err.Error()))
+		log.Warning(fmt.Sprintf("Add Job Denied: %v", err.Error()))
 		return false
 	}
 

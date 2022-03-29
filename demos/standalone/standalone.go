@@ -27,7 +27,11 @@ func main() {
 				return
 			default:
 				id := fmt.Sprintf("%d", rand.Intn(1000000))
-				job := async.NewJob(longTimeJob, "xunzhuo")
+				job, err := async.NewJob(longTimeJob, "xunzhuo")
+				if err != nil {
+					log.Error("New Job Failed:%v", err)
+					continue
+				}
 				if ok := async.DefaultAsyncQueue().AddJobAndRun(job); ok {
 					jobID <- *job
 					log.Warning("Send Job ID: ", id)

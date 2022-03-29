@@ -26,7 +26,12 @@ func TestCreateWorkQueueWithOptions(t *testing.T) {
 			default:
 				time.Sleep(100 * time.Millisecond)
 				// id := fmt.Sprintf("%d", rand.Intn(1000000))
-				workQueue.AddJobAndRun(NewJob(fakeJobV2, "xunzhuo"))
+				if job, err := NewJob(fakeJobV2, "xunzhuo"); err != nil {
+					t.Error(err)
+				} else {
+					workQueue.AddJobAndRun(job)
+				}
+
 			}
 		}
 	}()

@@ -1,6 +1,7 @@
 package async
 
 import (
+	"errors"
 	"reflect"
 	"time"
 
@@ -49,10 +50,13 @@ func (j *Job) SetSubID(id string) *Job {
 	return j
 }
 
-func NewJob(handler interface{}, params ...interface{}) *Job {
+func NewJob(handler interface{}, params ...interface{}) (*Job, error) {
 	uuid := uuid.New()
 	jobID := uuid.String()
-	return newJob(jobID, "", time.Now().Unix(), handler, params...)
+	if reflect.TypeOf(handler).Kind() != reflect.Func {
+		return nil, errors.New("Job handler is not func")
+	}
+	return newJob(jobID, "", time.Now().Unix(), handler, params...), nil
 }
 
 func newJob(jobID string, taskName string, startTime int64,

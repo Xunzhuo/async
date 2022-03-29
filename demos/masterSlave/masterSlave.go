@@ -34,7 +34,12 @@ func main() {
 				if !workQueue.IsFull() {
 					for {
 						slaveID := fmt.Sprintf("%d", rand.Intn(1000000))
-						job := async.NewJob(longTimeJob, "xunzhuo").SetJobID(masterID)
+						job, err := async.NewJob(longTimeJob, "xunzhuo")
+						if err != nil {
+							log.Error(err)
+							continue
+						}
+						job.SetJobID(masterID)
 						job.SetSubID(slaveID)
 						if ok := workQueue.AddJobAndRun(job); ok {
 							jobID <- *job

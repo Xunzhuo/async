@@ -8,10 +8,15 @@ import (
 )
 
 func main() {
-	async.Q().
+	queue := async.Q().
 		SetMaxWaitQueueLength(100).
 		SetMaxWorkQueueLength(100).
-		Start().AddJobAndRun(async.NewJob(longTimeJob))
+		Start()
+	job, err := async.NewJob(longTimeJob)
+	if err != nil {
+		return
+	}
+	queue.AddJobAndRun(job)
 	time.Sleep(5 * time.Second)
 }
 
