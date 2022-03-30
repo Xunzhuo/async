@@ -44,7 +44,17 @@ func (j *statuses) setStatus(job *Job, status string) {
 }
 
 func (j *statuses) getStatus(job Job) string {
-	return j.getJobStatuses()[job.jobID].subjobIDs[job.GetSubID()]
+	statuses := j.getJobStatuses()
+	queueLocker.locker.RLock()
+	defer queueLocker.locker.RUnlock()
+	if status, ok := statuses[job.jobID]; ok {
+		if s, ok := status.subjobIDs[job.GetSubID()]; ok {
+
+			return s
+		}
+		return StatusUnknown
+	}
+	return StatusUnknown
 }
 
 func (j *statuses) getJobStatuses() map[string]*Job {

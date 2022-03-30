@@ -71,6 +71,6 @@ func main() {
 }
 
 func longTimeJob(value string) string {
-	time.Sleep(1000 * time.Millisecond)
+	time.Sleep(100 * time.Millisecond)
 	return "Hello World from " + value
 }
