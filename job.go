@@ -44,6 +44,6 @@ func newJob(jobID string, startTime int64,
 
 func newKey() *key {
 	return &key{
-		subjobIDs: make([]string, 0),
+		subjobIDs: make(map[string]string),
 	}
 }

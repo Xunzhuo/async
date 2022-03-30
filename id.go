@@ -9,7 +9,7 @@ type key struct {
 	jobID        string
 	subID        string
 	enableSubjob bool
-	subjobIDs    []string
+	subjobIDs    map[string]string
 }
 
 func (j *Job) EncodejobIDWithMD5() *Job {
@@ -41,13 +41,17 @@ func (j *Job) GetSubID() string {
 func (j *Job) SetSubID(id string) *Job {
 	j.enableSubjob = true
 	j.subID = id
-	j.subjobIDs = append(j.subjobIDs, id)
+	j.subjobIDs[id] = StatusPending
 	return j
 }
 
 func (j *Job) GetSubIDs() []string {
 	if j.enableSubjob {
-		return j.subjobIDs
+		subIDs := make([]string, 0)
+		for subID := range j.subjobIDs {
+			subIDs = append(subIDs, subID)
+		}
+		return subIDs
 	}
 	return []string{keyOfnoSubID}
 }
@@ -56,9 +60,17 @@ func (a *Queue) GetJobsID() map[string][]string {
 	history := make(map[string][]string)
 	jobIDs := a.GetJobStatuses()
 	for job, subJobs := range jobIDs {
-		for _, subJob := range subJobs {
+		for subJob := range subJobs.subjobIDs {
 			history[job] = append(history[job], subJob)
 		}
 	}
 	return history
+}
+
+func (a *Queue) GetJobByID(id string) *Job {
+	jobIDs := a.GetJobStatuses()
+	if job, ok := jobIDs[id]; ok {
+		return job
+	}
+	return nil
 }
