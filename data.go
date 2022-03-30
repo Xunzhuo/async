@@ -10,7 +10,7 @@ func (a *Queue) GetJobsData(job Job) (map[string][]interface{}, bool) {
 		for _, subID := range job.GetSubIDs() {
 			a.logger.Info("Get Job Data", "jobID", job.jobID, "subID", subID)
 			if _, ok := a.sharedJobData[job.jobID][subID]; ok {
-				jobDataList[subID] = append(jobDataList[subID], a.sharedJobData[job.jobID][subID])
+				jobDataList[subID] = a.sharedJobData[job.jobID][subID]
 			} else {
 				a.logger.Info("Cannot get Job Data", "jobID", job.jobID, "subID", subID)
 			}

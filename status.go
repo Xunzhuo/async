@@ -49,7 +49,6 @@ func (j *statuses) getStatus(job Job) string {
 	defer queueLocker.locker.RUnlock()
 	if status, ok := statuses[job.jobID]; ok {
 		if s, ok := status.subjobIDs[job.GetSubID()]; ok {
-
 			return s
 		}
 		return StatusUnknown

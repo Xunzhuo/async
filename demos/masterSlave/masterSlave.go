@@ -22,7 +22,7 @@ func main() {
 	stop := make(chan bool)
 
 	wg := sync.WaitGroup{}
-	count := 10
+	count := 100
 	wg.Add(count)
 	for i := 0; i < count; i++ {
 		go func() {
@@ -47,6 +47,8 @@ func main() {
 	}
 	wg.Wait()
 
+	time.Sleep(10 * time.Second)
+
 	go func() {
 		for {
 			select {
@@ -59,6 +61,7 @@ func main() {
 				if datas, ok := workQueue.GetJobsData(job); ok {
 					for _, data := range datas {
 						log.Info("Get Data", "Data", data[0].(string))
+						time.Sleep(1 * time.Second)
 					}
 				}
 			}
