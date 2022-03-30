@@ -73,6 +73,15 @@ func (a *Queue) AddJobAndRun(job *Job) bool {
 		return false
 	}
 
+	if masterJob := a.GetJobByID(job.jobID); masterJob != nil {
+		var subID string
+		if job.GetSubID() != keyOfnoSubID {
+			subID = job.GetSubID()
+			masterJob.SetSubID(subID)
+		}
+		job = masterJob
+	}
+
 	a.SetJobStatus(job, StatusPending)
 	a.workJobsQueue <- job
 	a.workQueueLength++
@@ -87,12 +96,22 @@ func (a *Queue) AddJob(job *Job) bool {
 		return false
 	}
 
+	if masterJob := a.GetJobByID(job.jobID); masterJob != nil {
+		var subID string
+		if job.GetSubID() != keyOfnoSubID {
+			subID = job.GetSubID()
+			masterJob.SetSubID(subID)
+		}
+		job = masterJob
+	}
+
 	if len(a.waitJobsQueue) == a.maxWaitQueueLength {
 		a.logger.Info("Job moved into work queue", "jobID", job.jobID)
 		headJob := <-a.waitJobsQueue
 		a.workJobsQueue <- headJob
 	}
 
+	a.SetJobStatus(job, StatusPending)
 	a.waitJobsQueue <- job
 
 	a.logger.Info("Add Job to WaitQueue", "jobID", job.jobID, "Queue Length", len(a.waitJobsQueue))
