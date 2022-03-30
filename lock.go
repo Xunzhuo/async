@@ -12,7 +12,7 @@ type asyncJobLocker struct {
 }
 
 func (l *asyncJobLocker) hasLock(job *Job) bool {
-	if status, ok := l.lockList[job.JobID]; ok && status {
+	if status, ok := l.lockList[job.jobID]; ok && status {
 		return true
 	}
 	return false
@@ -36,7 +36,7 @@ func newLocker() *asyncJobLocker {
 func (a *Queue) LockJob(job *Job) {
 	queueLocker.locker.Lock()
 	defer queueLocker.locker.Unlock()
-	queueLocker.lockList[job.JobID] = true
+	queueLocker.lockList[job.jobID] = true
 }
 
 func (a *Queue) IsLock(job *Job) bool {
@@ -46,7 +46,7 @@ func (a *Queue) IsLock(job *Job) bool {
 func (a *Queue) UnLockJob(job *Job) {
 	queueLocker.locker.Lock()
 	defer queueLocker.locker.Unlock()
-	queueLocker.lockList[job.JobID] = false
+	queueLocker.lockList[job.jobID] = false
 }
 
 func (a *Queue) GetLockJobs() []string {

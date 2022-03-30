@@ -4,8 +4,10 @@ import (
 	"testing"
 	"time"
 
-	log "github.com/sirupsen/logrus"
+	"k8s.io/klog/v2/klogr"
 )
+
+var log = klogr.New()
 
 func TestCreateWorkQueueWithOptions(t *testing.T) {
 	workQueue := Q().

@@ -1,13 +1,13 @@
 package main
 
 import (
-	"fmt"
-	"math/rand"
 	"time"
 
 	"github.com/Xunzhuo/async"
-	log "github.com/sirupsen/logrus"
+	"k8s.io/klog/v2/klogr"
 )
+
+var log = klogr.New()
 
 func main() {
 
@@ -26,13 +26,12 @@ func main() {
 				}
 				return
 			default:
-				id := fmt.Sprintf("%d", rand.Intn(1000000))
 				job := async.NewJob(longTimeJob, "xunzhuo")
 				if ok := async.DefaultAsyncQueue().AddJobAndRun(job); ok {
 					jobID <- *job
-					log.Warning("Send Job ID: ", id)
+					log.Info("Send Job", "JobID", job.GetJobID())
 				} else {
-					log.Warning("Reject Job ID: ", id)
+					log.Info("Reject Job", "JobID", job.GetJobID())
 				}
 			}
 		}
@@ -52,9 +51,9 @@ func main() {
 				}
 				return
 			case job := <-jobID:
-				log.Warning("Received Job ID: ", job.JobID)
+				log.Info("Received Job ID", "JobID", job.GetJobID())
 				if data, ok := async.DefaultAsyncQueue().GetJobData(job); ok {
-					log.Warningf(fmt.Sprintf("Get data from WorkQueue %s with ID: %s", data[0].(string), job.GetJobID()))
+					log.Info("Get data from WorkQueue", "Data", data[0].(string), "JobID", job.GetJobID())
 				}
 			}
 		}

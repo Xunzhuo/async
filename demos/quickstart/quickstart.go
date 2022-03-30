@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/Xunzhuo/async"
-	log "github.com/sirupsen/logrus"
 )
 
 func main() {
@@ -16,6 +15,5 @@ func main() {
 }
 
 func longTimeJob() {
-	log.Info("Running long time job")
 	time.Sleep(500 * time.Millisecond)
 }

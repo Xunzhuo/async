@@ -3,11 +3,14 @@ package main
 import (
 	"fmt"
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/Xunzhuo/async"
-	log "github.com/sirupsen/logrus"
+	"k8s.io/klog/v2/klogr"
 )
+
+var log = klogr.New()
 
 func main() {
 	workQueue := async.Q().
@@ -15,10 +18,34 @@ func main() {
 		SetMaxWorkQueueLength(100)
 
 	workQueue.Start()
-
+	jobs := make(chan async.Job, 1000)
 	stop := make(chan bool)
-	stopData := make(chan bool)
-	jobID := make(chan async.Job, 1000)
+
+	wg := sync.WaitGroup{}
+	count := 10
+	wg.Add(count)
+	for i := 0; i < count; i++ {
+		go func() {
+			masterID := fmt.Sprintf("%d", rand.Intn(100))
+			counter := 3
+			if !workQueue.IsFull() {
+				for {
+					slaveID := fmt.Sprintf("%d", rand.Intn(100))
+					job := async.NewJob(longTimeJob, "xunzhuo").SetJobID(masterID)
+					job.SetSubID(slaveID)
+					if ok := workQueue.AddJobAndRun(job); ok {
+						jobs <- *job
+					}
+					if counter < 1 {
+						break
+					}
+					counter--
+				}
+			}
+			wg.Done()
+		}()
+	}
+	wg.Wait()
 
 	go func() {
 		for {
@@ -28,47 +55,10 @@ func main() {
 					return
 				}
 				return
-			default:
-				masterID := fmt.Sprintf("%d", rand.Intn(1000000))
-				counter := 3
-				if !workQueue.IsFull() {
-					for {
-						slaveID := fmt.Sprintf("%d", rand.Intn(1000000))
-						job := async.NewJob(longTimeJob, "xunzhuo").SetJobID(masterID)
-						job.SetSubID(slaveID)
-						if ok := workQueue.AddJobAndRun(job); ok {
-							jobID <- *job
-							log.Warning("Send Job ID: ", masterID)
-						}
-						if counter < 1 {
-							break
-						}
-						counter--
-					}
-				}
-			}
-		}
-	}()
-	time.Sleep(60 * time.Second)
-	stop <- true
-
-	log.Info("Send signal to close workQueue")
-	close(stop)
-
-	go func() {
-		for {
-			log.Info("Start to receive Job Data")
-			select {
-			case _, ok := <-stopData:
-				if !ok {
-					return
-				}
-				return
-			case job := <-jobID:
-				log.Info("Received Job ID: ", job.JobID)
+			case job := <-jobs:
 				if datas, ok := workQueue.GetJobsData(job); ok {
 					for _, data := range datas {
-						log.Warningf(fmt.Sprintf("Get data from workQueue %s with ID: %s", data[0].(string), job.GetJobID()))
+						log.Info("Get Data", "Data", data[0].(string))
 					}
 				}
 			}
@@ -76,8 +66,8 @@ func main() {
 	}()
 
 	time.Sleep(10 * time.Second)
-	stopData <- true
-	close(stopData)
+	stop <- true
+	close(stop)
 }
 
 func longTimeJob(value string) string {

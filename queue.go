@@ -5,29 +5,31 @@ import (
 	"reflect"
 	"time"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/go-logr/logr"
 )
 
 // Queue The Async Job WorkQueue
 type Queue struct {
 	*options
+	logger logr.Logger
 
 	workJobsQueue chan Job
 	waitJobsQueue chan Job
 
 	workQueueLength int
 
-	SharedJobData        map[string]map[string][]interface{}
-	SharedJobDataChannel chan map[string]map[string][]interface{}
+	sharedJobData        map[string]map[string][]interface{}
+	sharedJobDataChannel chan map[string]map[string][]interface{}
 }
 
 func Q() *Queue {
 	return &Queue{
 		options:              defaultOptions,
-		workJobsQueue:        make(chan Job, DefaultWorkQueueCapacity),
-		SharedJobData:        make(map[string]map[string][]interface{}),
-		SharedJobDataChannel: make(chan map[string]map[string][]interface{}),
-		waitJobsQueue:        make(chan Job, DefaultWaitQueueCapacity),
+		logger:               defaultOptions.logger,
+		workJobsQueue:        make(chan Job, defaultOptions.maxWorkQueueLength),
+		sharedJobData:        make(map[string]map[string][]interface{}),
+		sharedJobDataChannel: make(chan map[string]map[string][]interface{}),
+		waitJobsQueue:        make(chan Job, defaultOptions.maxWorkQueueLength),
 	}
 }
 
@@ -37,7 +39,6 @@ func (a *Queue) CheckJob(job *Job) (bool, error) {
 		return false, fmt.Errorf("work Queue is full")
 	}
 
-	log.Debug("checking Job to see if it can be added to queue")
 	if a.GetJobStatus(job) == StatusFailure {
 		return false, fmt.Errorf("job created failed")
 	}
@@ -54,9 +55,9 @@ func (a *Queue) CheckJob(job *Job) (bool, error) {
 		return false, fmt.Errorf("job has been given wrong handler, make sure it is a func")
 	}
 
-	if !job.EnableSubjob {
+	if !job.enableSubjob {
 		if e := a.GetJobStatus(job); e == StatusRunning {
-			return false, fmt.Errorf("jobs %s has been added", job.JobID)
+			return false, fmt.Errorf("jobs %s has been added", job.jobID)
 		}
 	} else {
 		if e := a.GetJobStatus(job); e == StatusRunning {
@@ -69,40 +70,39 @@ func (a *Queue) CheckJob(job *Job) (bool, error) {
 // AddJobAndRun Add Job to workQueue and run it
 func (a *Queue) AddJobAndRun(job *Job) bool {
 	if _, err := a.CheckJob(job); err != nil {
-		log.Warningf(fmt.Sprintf("Add Job Denied: %v", err.Error()))
+		a.logger.Error(err, "Add Job Denied")
 		return false
 	}
 
 	a.SetJobStatus(job, StatusPending)
 	a.workJobsQueue <- *job
 	a.workQueueLength++
-	log.Info("Add Job to WorkQueue and Run With JobID: ", job.JobID, " Number of Jobs in Queue :", a.workQueueLength)
+	a.logger.Info("Add Job to WorkQueue and Run", "jobID", job.jobID, "Queue Length", a.workQueueLength)
 	return true
 }
 
 // AddJob Add Job to waitQueue
 func (a *Queue) AddJob(job *Job) bool {
 	if _, err := a.CheckJob(job); err != nil {
-		log.Info(fmt.Sprintf("Add Job Denied: %v", err.Error()))
+		a.logger.Error(err, "Add Job Denied")
 		return false
 	}
 
 	if len(a.waitJobsQueue) == a.maxWaitQueueLength {
-		log.Info(fmt.Sprintf("Async Job %s Has moved into workQueue for space pressure", job.JobID))
-		log.Info("Job has moved into work queue with JobID: ", job.JobID)
+		a.logger.Info("Job moved into work queue", "jobID", job.jobID)
 		headJob := <-a.waitJobsQueue
 		a.workJobsQueue <- headJob
 	}
 
 	a.waitJobsQueue <- *job
 
-	log.Info(fmt.Sprintf("Job has added into wait work queue with JobID: %s with length %d", job.JobID, len(a.waitJobsQueue)))
+	a.logger.Info("Add Job to WaitQueue", "jobID", job.jobID, "Queue Length", len(a.waitJobsQueue))
 	return true
 }
 
 func (a *Queue) Run() bool {
 	if len(a.waitJobsQueue) == 0 {
-		log.Info("wait work queue is empty")
+		a.logger.Info("wait work queue is empty")
 		return false
 	}
 
@@ -113,11 +113,11 @@ func (a *Queue) Run() bool {
 			}
 			headJob := <-waitJobs
 			a.workJobsQueue <- headJob
-			log.Info(fmt.Sprintf("Job %s has added into work queue from waited queue", headJob.JobID))
+			a.logger.Info("Job added into work queue from wait queue", "jobID", headJob.jobID)
 		}
 	}(a.waitJobsQueue)
 
-	log.Info("All Job has added into work queue from waited queue")
+	a.logger.Info("All Job added to work queue from wait queue")
 	return true
 }
 
@@ -137,25 +137,25 @@ func (a *Queue) Start() *Queue {
 			subData[subID] = jobdata
 			result[jobID] = subData
 
-			log.Info(fmt.Sprintf("Async Job %s Finished with SubID: %s", jobID, subID))
+			a.logger.Info("Job Wrote Data", "jobID", jobID, "SubID", subID)
 		}
-	}(a.SharedJobData, dataChans)
+	}(a.sharedJobData, dataChans)
 
 	go func(jobs chan Job, dataChans chan map[string]interface{}) {
 		for {
 			job := <-a.workJobsQueue
-			jobID := job.JobID
+			jobID := job.jobID
 			subID := job.GetSubID()
 
 			jobData := make([]interface{}, 0)
 			if a.GetJobStatus(&job) == StatusRunning {
-				log.Info(fmt.Sprintf("Async Job %s Has Started", jobID))
+				a.logger.Info("Job Started", "jobID", jobID, "SubID", subID)
 				continue
 			}
 
 			values := job.handler.Call(job.params)
 			a.SetJobStatus(&job, StatusRunning)
-			log.Info(fmt.Sprintf("Async Job %s Has Done", jobID))
+			a.logger.Info("Job Done", "jobID", jobID, "SubID", subID)
 
 			if valuesNum := len(values); valuesNum > 0 {
 				resultItems := make([]interface{}, valuesNum)
@@ -166,7 +166,7 @@ func (a *Queue) Start() *Queue {
 			}
 
 			dataChans <- map[string]interface{}{keyOfJobID: jobID, keyOfSubID: subID, keyOfjobData: jobData}
-			log.Info(fmt.Sprintf("Async Job %s Has sent Job Data", jobID))
+			a.logger.Info("Job Sent Data", "jobID", jobID, "SubID", subID)
 		}
 	}(a.workJobsQueue, dataChans)
 	return a

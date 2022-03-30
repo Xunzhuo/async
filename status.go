@@ -37,13 +37,15 @@ func (a *Queue) SetJobStatus(job *Job, status string) *Queue {
 }
 
 func (j *statuses) setStatus(job Job, status string) {
+	queueLocker.locker.Lock()
+	defer queueLocker.locker.Unlock()
 	subJobStatus := make(map[string]string)
 	subJobStatus[job.GetSubID()] = status
-	j.workJobsStatus[job.JobID] = subJobStatus
+	j.workJobsStatus[job.jobID] = subJobStatus
 }
 
 func (j *statuses) getStatus(job Job) string {
-	return j.getJobStatuses()[job.JobID][job.GetSubID()]
+	return j.getJobStatuses()[job.jobID][job.GetSubID()]
 }
 
 func (j *statuses) getJobStatuses() map[string]map[string]string {
