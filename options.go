@@ -2,16 +2,11 @@ package async
 
 import (
 	"github.com/go-logr/logr"
-	"k8s.io/klog"
 	"k8s.io/klog/v2/klogr"
 )
 
 var defaultOptions = newDefaultOptions()
 var defaultLogger = klogr.New()
-
-func init() {
-	klog.InitFlags(nil)
-}
 
 // JobWorkQueueOptions some options when creating job workqueue
 type options struct {
