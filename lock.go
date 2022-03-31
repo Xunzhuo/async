@@ -4,7 +4,7 @@ import (
 	"sync"
 )
 
-var queueLocker = newLocker()
+var queueLockers = newLocker()
 
 type asyncJobLocker struct {
 	locker   *sync.RWMutex
@@ -34,21 +34,21 @@ func newLocker() *asyncJobLocker {
 }
 
 func (a *Queue) LockJob(job *Job) {
-	queueLocker.locker.Lock()
-	defer queueLocker.locker.Unlock()
-	queueLocker.lockList[job.jobID] = true
+	queueLockers.locker.Lock()
+	defer queueLockers.locker.Unlock()
+	queueLockers.lockList[job.jobID] = true
 }
 
 func (a *Queue) IsLock(job *Job) bool {
-	return queueLocker.hasLock(job)
+	return queueLockers.hasLock(job)
 }
 
 func (a *Queue) UnLockJob(job *Job) {
-	queueLocker.locker.Lock()
-	defer queueLocker.locker.Unlock()
-	queueLocker.lockList[job.jobID] = false
+	queueLockers.locker.Lock()
+	defer queueLockers.locker.Unlock()
+	queueLockers.lockList[job.jobID] = false
 }
 
 func (a *Queue) GetLockJobs() []string {
-	return queueLocker.getLockJobs()
+	return queueLockers.getLockJobs()
 }

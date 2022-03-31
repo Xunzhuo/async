@@ -39,13 +39,17 @@ func (j *Job) GetSubID() string {
 func (j *Job) SetSubID(id string) *Job {
 	j.enableSubjob = true
 	j.subID = id
+	queueLockers.locker.Lock()
 	j.subjobIDs[id] = StatusPending
+	queueLockers.locker.Unlock()
 	return j
 }
 
 func (j *Job) GetSubIDs() []string {
 	if j.enableSubjob {
 		subIDs := make([]string, 0)
+		queueLockers.locker.RLock()
+		defer queueLockers.locker.RUnlock()
 		for subID := range j.subjobIDs {
 			subIDs = append(subIDs, subID)
 		}

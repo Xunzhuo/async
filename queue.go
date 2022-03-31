@@ -85,9 +85,9 @@ func (a *Queue) AddJobAndRun(job *Job) bool {
 	}
 
 	a.SetJobStatus(job, StatusPending)
+	a.logger.Info("Add Job to WorkQueue", "jobID", job.GetJobID(), "subID", job.GetSubID(), "WorkQueue Length", a.Length())
 	a.workJobsQueue <- job
-	a.logger.Info("Add Job to WorkQueue", "jobID", job.jobID, "subID", job.subID, "WorkQueue Length", a.Length())
-	time.Sleep(1 * time.Second)
+	time.Sleep(1 * time.Millisecond)
 	return true
 }
 
@@ -112,8 +112,8 @@ func (a *Queue) AddJob(job *Job) bool {
 
 	a.SetJobStatus(job, StatusPending)
 	a.waitJobsQueue <- job
-
-	a.logger.Info("Add Job to WaitQueue", "jobID", job.jobID, "WaitQueue Length", a.WaitQueueLength())
+	time.Sleep(1 * time.Millisecond)
+	a.logger.Info("Add Job to WaitQueue", "jobID", job.GetSubID(), "subID", job.GetSubID(), "WaitQueue Length", a.WaitQueueLength())
 	return true
 }
 
@@ -129,7 +129,7 @@ func (a *Queue) Run() bool {
 			}
 			headJob := <-waitJobs
 			a.workJobsQueue <- headJob
-			a.logger.Info("Job added into work queue from wait queue", "jobID", headJob.jobID)
+			a.logger.Info("Job added into work queue from wait queue", "jobID", headJob.GetJobID(), "subID", headJob.GetSubID())
 		}
 	}(a.waitJobsQueue)
 
@@ -139,61 +139,55 @@ func (a *Queue) Run() bool {
 // Start Start the Queue
 func (a *Queue) Start() *Queue {
 	dataChans := make(chan map[string]interface{}, a.options.maxWorkQueueLength)
-	a.startDataPipline(dataChans)
-	a.startworkPipline(dataChans)
+	go a.startWorkPipline(a.workJobsQueue, dataChans)
+	go a.startDataPipline(a.sharedJobData, dataChans)
 	return a
 }
 
-func (a *Queue) startDataPipline(dataChans chan map[string]interface{}) {
-	go func(result map[string]map[string][]interface{}, dataChans chan map[string]interface{}) {
-		subData := make(map[string][]interface{})
-		for {
-			select {
-			case <-a.shutdownDataChan:
-				a.logger.Info("shutdown DataPipline")
-				return
-			case res := <-dataChans:
+func (a *Queue) startDataPipline(result map[string]map[string][]interface{}, dataChans chan map[string]interface{}) {
+	subData := make(map[string][]interface{})
+	for {
+		select {
+		case <-a.shutdownDataChan:
+			a.logger.Info("shutdown DataPipline")
+			return
+		case res := <-dataChans:
+			jobID := res[keyOfJobID].(string)
+			subID := res[keyOfSubID].(string)
+			jobdata := res[keyOfjobData].([]interface{})
+			subData[subID] = jobdata
+			result[jobID] = subData
 
-				jobID := res[keyOfJobID].(string)
-				subID := res[keyOfSubID].(string)
-				jobdata := res[keyOfjobData].([]interface{})
-
-				subData[subID] = jobdata
-				result[jobID] = subData
-
-				a.logger.Info("Job Wrote Data", "jobID", jobID, "SubID", subID)
-			}
+			a.logger.Info("DataPipline Done", "jobID", jobID, "SubID", subID)
 		}
-	}(a.sharedJobData, dataChans)
+	}
 }
 
-func (a *Queue) startworkPipline(dataChans chan map[string]interface{}) {
-	go func(jobs chan *Job, dataChans chan map[string]interface{}) {
-		for {
-			select {
-			case <-a.shutdownWorkChan:
-				a.logger.Info("shutdown workPipline")
-				return
-			case job := <-a.workJobsQueue:
-				jobID := job.GetJobID()
-				subID := job.GetSubID()
-				jobData := make([]interface{}, 0)
+func (a *Queue) startWorkPipline(jobs chan *Job, dataChans chan map[string]interface{}) {
+	for {
+		select {
+		case <-a.shutdownWorkChan:
+			a.logger.Info("shutdown WorkPipline")
+			return
+		case job := <-jobs:
+			jobID := job.GetJobID()
+			subID := job.GetSubID()
+			jobData := make([]interface{}, 0)
 
-				values := job.handler.Call(job.params)
-				a.SetJobStatus(job, StatusRunning)
+			values := job.handler.Call(job.params)
+			a.SetJobStatus(job, StatusRunning)
 
-				if valuesNum := len(values); valuesNum > 0 {
-					resultItems := make([]interface{}, valuesNum)
-					for k, v := range values {
-						resultItems[k] = v.Interface()
-					}
-					jobData = resultItems
+			if valuesNum := len(values); valuesNum > 0 {
+				resultItems := make([]interface{}, valuesNum)
+				for k, v := range values {
+					resultItems[k] = v.Interface()
 				}
-				dataChans <- map[string]interface{}{keyOfJobID: jobID, keyOfSubID: subID, keyOfjobData: jobData}
-				a.logger.Info("WorkQueue Job Sent Data", "jobID", jobID, "SubID", subID)
+				jobData = resultItems
 			}
+			dataChans <- map[string]interface{}{keyOfJobID: jobID, keyOfSubID: subID, keyOfjobData: jobData}
+			a.logger.Info("WorkPipline Done", "jobID", jobID, "SubID", subID)
 		}
-	}(a.workJobsQueue, dataChans)
+	}
 }
 
 // IsFull check workqueue if it is full
