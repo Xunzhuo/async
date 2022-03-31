@@ -12,14 +12,12 @@ type key struct {
 	subjobIDs    map[string]string
 }
 
-func (j *Job) EncodejobIDWithMD5() *Job {
+func (j *Job) EncodejobIDWithMD5() {
 	j.jobID = fmt.Sprintf("%x", md5.Sum([]byte(j.jobID)))
-	return j
 }
 
-func (j *Job) EncodesubIDWithMD5() *Job {
+func (j *Job) EncodesubIDWithMD5() {
 	j.subID = fmt.Sprintf("%x", md5.Sum([]byte(j.subID)))
-	return j
 }
 
 func (j *Job) GetJobID() string {
@@ -35,7 +33,7 @@ func (j *Job) GetSubID() string {
 	if j.enableSubjob {
 		return j.subID
 	}
-	return keyOfnoSubID
+	return j.jobID + "/" + keyOfnoSubID
 }
 
 func (j *Job) SetSubID(id string) *Job {
@@ -53,7 +51,7 @@ func (j *Job) GetSubIDs() []string {
 		}
 		return subIDs
 	}
-	return []string{keyOfnoSubID}
+	return []string{j.GetSubID()}
 }
 
 func (a *Queue) GetJobsID() map[string][]string {

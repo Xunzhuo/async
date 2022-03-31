@@ -1,10 +1,6 @@
 package async
 
-var statusMap *statuses
-
-func init() {
-	statusMap = newDefaultStatuses()
-}
+var statusMap = newDefaultStatuses()
 
 func newDefaultStatuses() *statuses {
 	return &statuses{

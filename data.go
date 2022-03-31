@@ -8,11 +8,12 @@ func (a *Queue) GetJobsData(job Job) (map[string][]interface{}, bool) {
 	jobDataList := make(map[string][]interface{})
 	if ok := a.HasJob(job); ok {
 		for _, subID := range job.GetSubIDs() {
-			a.logger.Info("Get Job Data", "jobID", job.jobID, "subID", subID)
 			if _, ok := a.sharedJobData[job.jobID][subID]; ok {
+				a.logger.Info("Get Job Data", "jobID", job.jobID, "subID", subID)
 				jobDataList[subID] = a.sharedJobData[job.jobID][subID]
 			} else {
-				a.logger.Info("Cannot get Job Data", "jobID", job.jobID, "subID", subID)
+				a.logger.Info("SubJob is not finished", "jobID", job.jobID, "subID", subID)
+				return nil, false
 			}
 		}
 	} else {
@@ -40,8 +41,8 @@ func (a *Queue) GetJobData(job Job) ([]interface{}, bool) {
 	}
 
 	if _, ok := a.sharedJobData[job.jobID]; ok {
-		if _, ok := a.sharedJobData[job.jobID][keyOfSubID]; ok {
-			return a.sharedJobData[job.jobID][keyOfSubID], true
+		if _, ok := a.sharedJobData[job.jobID][job.GetSubID()]; ok {
+			return a.sharedJobData[job.jobID][job.GetSubID()], true
 		}
 		return nil, false
 	}

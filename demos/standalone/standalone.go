@@ -43,7 +43,7 @@ func main() {
 
 	go func() {
 		for {
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(1000 * time.Millisecond)
 			select {
 			case _, ok := <-stopData:
 				if !ok {
@@ -59,12 +59,11 @@ func main() {
 		}
 	}()
 
-	time.Sleep(10 * time.Second)
+	time.Sleep(100 * time.Second)
 	stopData <- true
 	close(stopData)
 }
 
 func longTimeJob(value string) string {
-	time.Sleep(1000 * time.Millisecond)
 	return "Hello World from " + value
 }

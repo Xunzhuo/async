@@ -13,8 +13,10 @@ type Queue struct {
 	*options
 	logger logr.Logger
 
-	workJobsQueue chan *Job
-	waitJobsQueue chan *Job
+	workJobsQueue    chan *Job
+	waitJobsQueue    chan *Job
+	shutdownDataChan chan bool
+	shutdownWorkChan chan bool
 
 	workQueueLength int
 
@@ -30,11 +32,17 @@ func Q() *Queue {
 		sharedJobData:        make(map[string]map[string][]interface{}),
 		sharedJobDataChannel: make(chan map[string]map[string][]interface{}),
 		waitJobsQueue:        make(chan *Job, defaultOptions.maxWorkQueueLength),
+		shutdownDataChan:     make(chan bool),
+		shutdownWorkChan:     make(chan bool),
 	}
 }
 
 // CheckJobs check if Job is valid to add to queue
 func (a *Queue) CheckJob(job *Job) (bool, error) {
+	if job.handler.Kind() != reflect.Func {
+		return false, fmt.Errorf("job has been given a wrong handler, make sure it is a func")
+	}
+
 	if a.IsFull() {
 		return false, fmt.Errorf("work Queue is full")
 	}
@@ -55,10 +63,6 @@ func (a *Queue) CheckJob(job *Job) (bool, error) {
 		return false, fmt.Errorf("job has been locked")
 	}
 
-	if job.handler.Kind() != reflect.Func {
-		return false, fmt.Errorf("job has been given a wrong handler, make sure it is a func")
-	}
-
 	if e := a.GetJobStatus(job); e == StatusRunning {
 		return false, fmt.Errorf("jobs %s has been added", job.jobID)
 	}
@@ -73,19 +77,17 @@ func (a *Queue) AddJobAndRun(job *Job) bool {
 		return false
 	}
 
-	if masterJob := a.GetJobByID(job.jobID); masterJob != nil {
-		var subID string
-		if job.GetSubID() != keyOfnoSubID {
-			subID = job.GetSubID()
-			masterJob.SetSubID(subID)
+	if oldJob := a.GetJobByID(job.jobID); oldJob != nil {
+		if subID := job.GetSubID(); subID != keyOfnoSubID {
+			oldJob.SetSubID(subID)
 		}
-		job = masterJob
+		job.subjobIDs = oldJob.subjobIDs
 	}
 
 	a.SetJobStatus(job, StatusPending)
 	a.workJobsQueue <- job
-	a.workQueueLength++
-	a.logger.Info("Add Job to WorkQueue and Run", "jobID", job.jobID, "Queue Length", a.workQueueLength)
+	a.logger.Info("Add Job to WorkQueue", "jobID", job.jobID, "subID", job.subID, "WorkQueue Length", a.Length())
+	time.Sleep(1 * time.Second)
 	return true
 }
 
@@ -96,17 +98,14 @@ func (a *Queue) AddJob(job *Job) bool {
 		return false
 	}
 
-	if masterJob := a.GetJobByID(job.jobID); masterJob != nil {
-		var subID string
-		if job.GetSubID() != keyOfnoSubID {
-			subID = job.GetSubID()
-			masterJob.SetSubID(subID)
+	if oldJob := a.GetJobByID(job.jobID); oldJob != nil {
+		if subID := job.GetSubID(); subID != keyOfnoSubID {
+			oldJob.SetSubID(subID)
 		}
-		job = masterJob
+		job.subjobIDs = oldJob.subjobIDs
 	}
 
 	if len(a.waitJobsQueue) == a.maxWaitQueueLength {
-		a.logger.Info("Job moved into work queue", "jobID", job.jobID)
 		headJob := <-a.waitJobsQueue
 		a.workJobsQueue <- headJob
 	}
@@ -114,20 +113,19 @@ func (a *Queue) AddJob(job *Job) bool {
 	a.SetJobStatus(job, StatusPending)
 	a.waitJobsQueue <- job
 
-	a.logger.Info("Add Job to WaitQueue", "jobID", job.jobID, "Queue Length", len(a.waitJobsQueue))
+	a.logger.Info("Add Job to WaitQueue", "jobID", job.jobID, "WaitQueue Length", a.WaitQueueLength())
 	return true
 }
 
 func (a *Queue) Run() bool {
 	if len(a.waitJobsQueue) == 0 {
-		a.logger.Info("wait work queue is empty")
 		return false
 	}
 
 	go func(waitJobs chan *Job) {
 		for {
 			if len(waitJobs) < 1 {
-				break
+				return
 			}
 			headJob := <-waitJobs
 			a.workJobsQueue <- headJob
@@ -135,67 +133,96 @@ func (a *Queue) Run() bool {
 		}
 	}(a.waitJobsQueue)
 
-	a.logger.Info("All Job added to work queue from wait queue")
 	return true
 }
 
 // Start Start the Queue
 func (a *Queue) Start() *Queue {
-	dataChans := make(chan map[string]interface{}, a.maxWorkQueueLength)
-
-	go func(result map[string]map[string][]interface{}, dataChans chan map[string]interface{}) {
-		subData := make(map[string][]interface{})
-		for {
-			res := <-dataChans
-			a.workQueueLength--
-			jobID := res[keyOfJobID].(string)
-			subID := res[keyOfSubID].(string)
-			jobdata := res[keyOfjobData].([]interface{})
-
-			subData[subID] = jobdata
-			result[jobID] = subData
-
-			a.logger.Info("Job Wrote Data", "jobID", jobID, "SubID", subID)
-		}
-	}(a.sharedJobData, dataChans)
-
-	go func(jobs chan *Job, dataChans chan map[string]interface{}) {
-		for {
-			job := <-a.workJobsQueue
-			jobID := job.jobID
-			subID := job.GetSubID()
-
-			jobData := make([]interface{}, 0)
-			if a.GetJobStatus(job) == StatusRunning {
-				a.logger.Info("Job Started", "jobID", jobID, "SubID", subID)
-				continue
-			}
-
-			values := job.handler.Call(job.params)
-			a.SetJobStatus(job, StatusRunning)
-			a.logger.Info("Job Done", "jobID", jobID, "SubID", subID)
-
-			if valuesNum := len(values); valuesNum > 0 {
-				resultItems := make([]interface{}, valuesNum)
-				for k, v := range values {
-					resultItems[k] = v.Interface()
-				}
-				jobData = resultItems
-			}
-
-			dataChans <- map[string]interface{}{keyOfJobID: jobID, keyOfSubID: subID, keyOfjobData: jobData}
-			a.logger.Info("Job Sent Data", "jobID", jobID, "SubID", subID)
-		}
-	}(a.workJobsQueue, dataChans)
+	dataChans := make(chan map[string]interface{}, a.options.maxWorkQueueLength)
+	a.startDataPipline(dataChans)
+	a.startworkPipline(dataChans)
 	return a
 }
 
-func (a *Queue) WaitForTime(waitTime time.Duration) *Queue {
-	time.Sleep(waitTime)
-	return a
+func (a *Queue) startDataPipline(dataChans chan map[string]interface{}) {
+	go func(result map[string]map[string][]interface{}, dataChans chan map[string]interface{}) {
+		subData := make(map[string][]interface{})
+		for {
+			select {
+			case <-a.shutdownDataChan:
+				a.logger.Info("shutdown DataPipline")
+				return
+			case res := <-dataChans:
+
+				jobID := res[keyOfJobID].(string)
+				subID := res[keyOfSubID].(string)
+				jobdata := res[keyOfjobData].([]interface{})
+
+				subData[subID] = jobdata
+				result[jobID] = subData
+
+				a.logger.Info("Job Wrote Data", "jobID", jobID, "SubID", subID)
+			}
+		}
+	}(a.sharedJobData, dataChans)
+}
+
+func (a *Queue) startworkPipline(dataChans chan map[string]interface{}) {
+	go func(jobs chan *Job, dataChans chan map[string]interface{}) {
+		for {
+			select {
+			case <-a.shutdownWorkChan:
+				a.logger.Info("shutdown workPipline")
+				return
+			case job := <-a.workJobsQueue:
+				jobID := job.GetJobID()
+				subID := job.GetSubID()
+				jobData := make([]interface{}, 0)
+
+				values := job.handler.Call(job.params)
+				a.SetJobStatus(job, StatusRunning)
+
+				if valuesNum := len(values); valuesNum > 0 {
+					resultItems := make([]interface{}, valuesNum)
+					for k, v := range values {
+						resultItems[k] = v.Interface()
+					}
+					jobData = resultItems
+				}
+				dataChans <- map[string]interface{}{keyOfJobID: jobID, keyOfSubID: subID, keyOfjobData: jobData}
+				a.logger.Info("WorkQueue Job Sent Data", "jobID", jobID, "SubID", subID)
+			}
+		}
+	}(a.workJobsQueue, dataChans)
 }
 
 // IsFull check workqueue if it is full
 func (a *Queue) IsFull() bool {
 	return a.maxWorkQueueLength <= a.workQueueLength
+}
+
+// IsFull check workqueue if it is full
+func (a *Queue) Length() int {
+	return len(a.workJobsQueue)
+}
+
+// IsFull check workqueue if it is full
+func (a *Queue) WaitQueueLength() int {
+	return len(a.waitJobsQueue)
+}
+
+// Stop stop all piplines
+func (a *Queue) Stop() {
+	a.stopWorkChan()
+	a.stopDataChan()
+}
+
+// StopWorkChan
+func (a *Queue) stopWorkChan() {
+	a.shutdownWorkChan <- true
+}
+
+// stopDataChan
+func (a *Queue) stopDataChan() {
+	a.shutdownDataChan <- true
 }
