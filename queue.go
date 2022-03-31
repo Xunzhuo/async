@@ -3,7 +3,6 @@ package async
 import (
 	"fmt"
 	"reflect"
-	"time"
 
 	"github.com/go-logr/logr"
 )
@@ -20,20 +19,18 @@ type Queue struct {
 
 	workQueueLength int
 
-	sharedJobData        map[string]map[string][]interface{}
-	sharedJobDataChannel chan map[string]map[string][]interface{}
+	sharedJobData map[string]map[string][]interface{}
 }
 
 func Q() *Queue {
 	return &Queue{
-		options:              defaultOptions,
-		logger:               defaultOptions.logger,
-		workJobsQueue:        make(chan *Job, defaultOptions.maxWorkQueueLength),
-		sharedJobData:        make(map[string]map[string][]interface{}),
-		sharedJobDataChannel: make(chan map[string]map[string][]interface{}),
-		waitJobsQueue:        make(chan *Job, defaultOptions.maxWorkQueueLength),
-		shutdownDataChan:     make(chan bool),
-		shutdownWorkChan:     make(chan bool),
+		options:          defaultOptions,
+		logger:           defaultOptions.logger,
+		workJobsQueue:    make(chan *Job, defaultOptions.maxWorkQueueLength),
+		sharedJobData:    make(map[string]map[string][]interface{}),
+		waitJobsQueue:    make(chan *Job, defaultOptions.maxWorkQueueLength),
+		shutdownDataChan: make(chan bool),
+		shutdownWorkChan: make(chan bool),
 	}
 }
 
@@ -63,7 +60,7 @@ func (a *Queue) CheckJob(job *Job) (bool, error) {
 		return false, fmt.Errorf("job has been locked")
 	}
 
-	if e := a.GetJobStatus(job); e == StatusRunning {
+	if e := a.GetJobStatus(job); e == StatusRunning || e == StatusPending {
 		return false, fmt.Errorf("jobs %s has been added", job.jobID)
 	}
 
@@ -77,17 +74,16 @@ func (a *Queue) AddJobAndRun(job *Job) bool {
 		return false
 	}
 
-	if oldJob := a.GetJobByID(job.jobID); oldJob != nil {
-		if subID := job.GetSubID(); subID != keyOfnoSubID {
-			oldJob.SetSubID(subID)
-		}
-		job.subjobIDs = oldJob.subjobIDs
-	}
+	// if oldJob := a.GetJobByID(job.jobID); oldJob != nil {
+	// 	if subID := job.GetSubID(); subID != keyOfnoSubID {
+	// 		oldJob.SetSubID(subID)
+	// 	}
+	// 	job.subjobIDs = oldJob.subjobIDs
+	// }
 
-	a.SetJobStatus(job, StatusPending)
+	a.SetJobStatus(job, StatusRunning)
 	a.logger.Info("Add Job to WorkQueue", "jobID", job.GetJobID(), "subID", job.GetSubID(), "WorkQueue Length", a.Length())
 	a.workJobsQueue <- job
-	time.Sleep(1 * time.Millisecond)
 	return true
 }
 
@@ -101,6 +97,7 @@ func (a *Queue) AddJob(job *Job) bool {
 	if oldJob := a.GetJobByID(job.jobID); oldJob != nil {
 		if subID := job.GetSubID(); subID != keyOfnoSubID {
 			oldJob.SetSubID(subID)
+			job.subID = subID
 		}
 		job.subjobIDs = oldJob.subjobIDs
 	}
@@ -112,7 +109,6 @@ func (a *Queue) AddJob(job *Job) bool {
 
 	a.SetJobStatus(job, StatusPending)
 	a.waitJobsQueue <- job
-	time.Sleep(1 * time.Millisecond)
 	a.logger.Info("Add Job to WaitQueue", "jobID", job.GetSubID(), "subID", job.GetSubID(), "WaitQueue Length", a.WaitQueueLength())
 	return true
 }
@@ -128,6 +124,7 @@ func (a *Queue) Run() bool {
 				return
 			}
 			headJob := <-waitJobs
+			a.SetJobStatus(headJob, StatusRunning)
 			a.workJobsQueue <- headJob
 			a.logger.Info("Job added into work queue from wait queue", "jobID", headJob.GetJobID(), "subID", headJob.GetSubID())
 		}
@@ -139,12 +136,12 @@ func (a *Queue) Run() bool {
 // Start Start the Queue
 func (a *Queue) Start() *Queue {
 	dataChans := make(chan map[string]interface{}, a.options.maxWorkQueueLength)
-	go a.startWorkPipline(a.workJobsQueue, dataChans)
-	go a.startDataPipline(a.sharedJobData, dataChans)
+	go a.startWorkPipline(dataChans)
+	go a.startDataPipline(dataChans)
 	return a
 }
 
-func (a *Queue) startDataPipline(result map[string]map[string][]interface{}, dataChans chan map[string]interface{}) {
+func (a *Queue) startDataPipline(dataChans chan map[string]interface{}) {
 	subData := make(map[string][]interface{})
 	for {
 		select {
@@ -156,26 +153,25 @@ func (a *Queue) startDataPipline(result map[string]map[string][]interface{}, dat
 			subID := res[keyOfSubID].(string)
 			jobdata := res[keyOfjobData].([]interface{})
 			subData[subID] = jobdata
-			result[jobID] = subData
+			a.sharedJobData[jobID] = subData
 
 			a.logger.Info("DataPipline Done", "jobID", jobID, "SubID", subID)
 		}
 	}
 }
 
-func (a *Queue) startWorkPipline(jobs chan *Job, dataChans chan map[string]interface{}) {
+func (a *Queue) startWorkPipline(dataChans chan map[string]interface{}) {
 	for {
 		select {
 		case <-a.shutdownWorkChan:
 			a.logger.Info("shutdown WorkPipline")
 			return
-		case job := <-jobs:
+		case job := <-a.workJobsQueue:
 			jobID := job.GetJobID()
 			subID := job.GetSubID()
 			jobData := make([]interface{}, 0)
 
 			values := job.handler.Call(job.params)
-			a.SetJobStatus(job, StatusRunning)
 
 			if valuesNum := len(values); valuesNum > 0 {
 				resultItems := make([]interface{}, valuesNum)

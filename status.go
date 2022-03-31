@@ -38,6 +38,7 @@ func (a *Queue) HasJob(job Job) bool {
 }
 
 func (a *Queue) SetJobStatus(job *Job, status string) *Queue {
+	// a.logger.Info("SetJobStatus", "JobID", job.jobID, "SubID", job.subID, "Status", status)
 	statusMap.setStatus(job, status)
 	return a
 }

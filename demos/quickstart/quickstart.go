@@ -24,7 +24,7 @@ func main() {
 }
 
 func testMasterSlaveJob(q *async.Queue) {
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 1000; i++ {
 		data := "a" + fmt.Sprint(i)
 		job := async.NewJob(longTimeJob, data).SetJobID("xunzhuo").SetSubID(data)
 		q.AddJobAndRun(job)
@@ -32,7 +32,6 @@ func testMasterSlaveJob(q *async.Queue) {
 
 	for {
 		j1 := q.GetJobByID("xunzhuo")
-		log.Println(j1.GetJobID(), j1.GetSubIDs(), j1.GetSubID(), q.Length())
 		if datas, ok := q.GetJobsData(*j1); ok {
 			for k, v := range datas {
 				log.Println(k, v[0].(string))

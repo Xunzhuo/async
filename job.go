@@ -25,7 +25,7 @@ func NewJob(handler interface{}, params ...interface{}) *Job {
 func newJob(jobID string, startTime int64,
 	handler interface{}, params ...interface{}) *Job {
 
-	newJob := Job{
+	newJob := &Job{
 		key:       newKey(),
 		startTime: startTime,
 		handler:   reflect.ValueOf(handler),
@@ -39,7 +39,7 @@ func newJob(jobID string, startTime int64,
 		}
 	}
 
-	return &newJob
+	return newJob
 }
 
 func newKey() *key {
