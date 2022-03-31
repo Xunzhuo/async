@@ -31,11 +31,13 @@ func testMasterSlaveJob(q *async.Queue) {
 	}
 
 	for {
-		j1 := q.GetJobByID("xunzhuo")
-		if datas, ok := q.GetJobsData(*j1); ok {
+		j := q.GetJobByID("xunzhuo")
+		log.Println(j.GetJobID(), j.GetSubIDs(), j.GetSubID(), q.Length())
+		if datas, ok := q.GetJobsData(*j); ok {
 			for k, v := range datas {
 				log.Println(k, v[0].(string))
 			}
+			log.Println(len(j.GetSubIDs()))
 			break
 		}
 		time.Sleep(1 * time.Second)

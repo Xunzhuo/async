@@ -74,12 +74,9 @@ func (a *Queue) AddJobAndRun(job *Job) bool {
 		return false
 	}
 
-	// if oldJob := a.GetJobByID(job.jobID); oldJob != nil {
-	// 	if subID := job.GetSubID(); subID != keyOfnoSubID {
-	// 		oldJob.SetSubID(subID)
-	// 	}
-	// 	job.subjobIDs = oldJob.subjobIDs
-	// }
+	if oldJob := a.GetJobByID(job.jobID); oldJob != nil {
+		job.subjobIDs = oldJob.subjobIDs
+	}
 
 	a.SetJobStatus(job, StatusRunning)
 	a.logger.Info("Add Job to WorkQueue", "jobID", job.GetJobID(), "subID", job.GetSubID(), "WorkQueue Length", a.Length())
@@ -95,10 +92,6 @@ func (a *Queue) AddJob(job *Job) bool {
 	}
 
 	if oldJob := a.GetJobByID(job.jobID); oldJob != nil {
-		if subID := job.GetSubID(); subID != keyOfnoSubID {
-			oldJob.SetSubID(subID)
-			job.subID = subID
-		}
 		job.subjobIDs = oldJob.subjobIDs
 	}
 
