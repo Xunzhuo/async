@@ -77,7 +77,7 @@ Async is a lightwight, easy-to-use, high performance, more human-being Asynchron
 ## Getting Started
 
 <div align="center">
-<img src="docs/assets/images/code.png" alt="Code">
+<img src="docs/assets/images/carbon.png" alt="Code">
 </div>
 
 ### Installation
