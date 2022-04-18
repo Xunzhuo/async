@@ -67,7 +67,7 @@ Async is a lightwight, easy-to-use, high performance, more human-being Asynchron
 + Async is very easy to use, creating the jobs just by a couple of lines.
 + Support **master/slave** job mode or **standalone** job mode 
 + Provide powerful options to control the jobs like the MaxNumber of WorkQueue.
-+ Provide inner cache to speed up to get the cached jobs data.
++ Provide inner cache to speed up to get the cached jobs datas.
 + Help you easily manage your jobs into asynchronous way like:
     + reducing the time like the long time of http response in large number of requests
     + reducing the time like when interating with DataBase to query SQL
